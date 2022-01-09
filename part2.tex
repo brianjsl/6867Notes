@@ -1,0 +1,908 @@
+\documentclass[11pt]{scrartcl}
+\usepackage{brian}
+\title{\Large 6.867 Notes\\ 
+\large Taught by Tommi Jaakkola, Suvrit Sra, Pulkit Agrawal}
+\subtitle{}
+\author{\small Brian Lee}
+\date{\small Fall 2021}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[center]{caption}
+\usepackage{float}
+
+\begin{document}
+
+\setcounter{section}{8}
+\section{October 7th, 2021: Quantifying uncertainty, Conformal prediction}
+A brief outline for the topics today:
+\begin{itemize}
+    \item \textit{Challenges} in the ML models we have discussed so far
+    \item The difference between \vocab{robustness} and \vocab{uncertainty}
+    \item \vocab{Calibration} - how well does the value (not just the classification) reflect the \textit{true} probabilities?
+    \item \vocab{Conformal Prediction} - a method of taking any predictor into a measure of uncertainty
+\end{itemize}
+
+\subsection{Challenges}
+
+Recall so far we have studied a class of methods (CNN, RNN, GNN, etc.) to vectorize objects. These may seem quite simple but in reality we have quite a few challeneges we must face. 
+
+First take the following example:
+\begin{ex}
+Take a collection of E. Coli growth inhibitions and model them with a GNN to vectorize the antibiotic predictors. Then, you can pass them through a validation set of multiple bacterial species to see how the distribution generalizes. 
+\begin{center}
+    \includegraphics[scale =0.3]{10072101}
+\end{center}
+\end{ex}
+
+The challenges in the example are as follows:
+\begin{itemize}
+    \item Extracting key, casual information (eg. 3D, motifs, hiearchies)
+    \item Confidence, uncertainty (conformal prediction)
+    \item Out of distribution generalization (eg. invariance, consistency)
+\end{itemize}
+
+The first challenge is already a big one. It is provable that at least some features (eg. conjoined cycles in graphs) can not be extracted from the data. 
+
+The second challenge is actually modeling the confidence of your predictions: did you find something useful? What is your risk of your prediction? This is by no means an easy task especially with deep learning. 
+
+The third challenge is that of validation in other data (validation set, testing set, etc).
+
+\subsection{Uncertainty}
+
+\subsubsection{Robustness vs. Uncertainty}
+Recall our formulation of robustness: suppose we put a "slightly" different input $x \to x+\delta$ for $\norm{\delta}<\epsilon$. How does this uncertainty in \textit{input} affect the \textit{output} of these certain values? 
+
+When we talk about the output, we do not really care so much about the input. We run the input through the algorithm $f(x;\theta)$. What is $P(y=k|x;\theta)$? What are the actual fractions, coverage sets, $C(X)$, etc.? 
+
+What kind of guarantees can we get? Last time, we showed we can get certain certificates: that is, if we choose some specific radius that you can guarantee that the classifier remains the same. Note however that robustness is entirely \textit{internal}: it does not care how bad your prediction is, it merely tests how sensitive it is to change in input. 
+
+Uncertainty is the flipside to this. Uncertainty measures how well you classify data, giving marginal and statistical guarantees. For example, for a method you might have results like the following:
+\begin{ex}[Uncertainty Guarantee]
+With probability at least $1-\delta$, $\forall{f} \in \mathcal{F}$, $$\ee[\mathcal{L}(y,f(x))] \le \frac{1}{n}\sum_{i=1}^{n}\mathcal{L}(y,f(x_i))+C(n,F,\delta)$$
+where $C$ is some complexity penalty that depends on the parameters of your data and hypothesis class. 
+\end{ex}
+
+For example, you might have for $0-1$ loss: $$\ee[[yf(x) \le 0]] = \pp(yf(x) \le 0)$$
+There is a slight problem with this approach however: though you can say much about the distribution itself this does not give any information about \textit{specific} values of the input $x$. Thus, you can not really generalize very well. 
+\begin{center}
+    \includegraphics[scale =0.3]{10072102.png}
+\end{center}
+(Add picture Later)
+
+Later, we will show that we \textit{can} do generalization for individual points with guarantees of the form $P(Y \in C_\alpha(X)) \ge 1-\alpha$. 
+
+\subsubsection{Many Reasons to Care about Uncertainty}
+Why do we care about uncertainty? Well we want to know if we should take actions based on say some biological data, take actions due to evidence of fraud, screen compounds, among other things. 
+
+\subsubsection{Understanding Uncertainty}
+There are many types of uncertainty:
+\begin{itemize}
+    \item \vocab{Aleatoric Uncertainty} - the \textit{noise} in your observations. You can not really change this because it is due to the systematic probabilistic nature of models. You just need to be able to capture it.
+    \item \vocab{Epistemic Uncertainty} - unknown systematic effects due to things such as wrong model/hypothesis class, etc. For example, you can actually make a prediction that \textit{completely differs} in the training data set compared to the testing data set. This is \vocab{Simpson's Paradox}.
+\end{itemize}
+
+\begin{ex}[Epistemic Uncertainty]
+Take for example a model of houses in which a house has age $x_1$ and $x_2=1$ if it is a new house and $0$ if it is an old house. We might use a linear predictor to 
+\end{ex}
+
+\subsection{Probabilities and Calibration}
+We would like our method to predict the probability of each outcome, eg. in response to $x_i$ we predict $\hat{p_i}=P(Y=1|x_p\hat{\theta})$. For example, $x_1$ might predict $y_1$ with probability $\hat{p}_1$, etc. How accurate/realistic are these probabilites? In what sense? 
+
+What we can do is take a little interval $\Delta$ of our estimated probabilty in our \vocab{Calibration plot}. Then, for this interval, first estimate:
+$$\hat{n}_{\Delta}=\sum_{i=1}^{n}[[\hat{p_i} \in \Delta]]$$
+This gives the proportion of probabilites that lie within our interval. 
+
+Then, you can find $$\hat{p}_\Delta = \frac{1}{\hat{n}_{\Delta}}\sum_{i=1}^{n}[[\hat{p_i}\in \Delta]]\hat{p_i}$$
+and 
+$$p^*_\Delta = \frac{1}{\hat{n}_\Delta}\sum_{i=1}^{n}[[\hat{p_i} \in \Delta]][[y_i=1]]$$
+
+\subsection{Conformal Prediciton}
+
+So we want to get confident predictions from \textit{any} method. Suppose $Y$ is discrete (eg. $1,\cdots, k$) or continuous (real). We will now switch from predicting one value (eg. guessing dog names) ti predicting a \textit{set} of possible $Y$ values. 
+\begin{center}
+    \includegraphics[scale = 0.3]{10072104.png}
+\end{center}
+In other words, we hope to determine a set $C_\alpha(x)$ based on any predictor such that $$P(Y \in C_\alpha(x)) \ge 1-\alpha$$
+What we \textit{really} want is $$P(Y \in C_\alpha(X)|X=x) \ge 1-\alpha$$ (that is, for any particular example of your input, you could get a set for which you are confident about the probability of success). 
+
+We now define conformal prediction slightly more formally. Given a set of $n$ \textit{exchangeable} examples (we define this soon) $\{(x_i,y_i)\}$ (you can just assume iid for this course) and \textit{any} predictor, for a new input $x_{n+1}$ we construct a set $C_{n,\alpha}(x_{n+1})$ of possible $y$ values with the help of the predictor. 
+
+\begin{defn}
+The resulting set is said to be \vocab{valid} if $$P(Y_{n+1} \in C_{n,\alpha}(X_{n+1})) \ge 1-\alpha$$ and \vocab{efficient} if
+$$\ee[|C_{n,\alpha}(X_{n+1})|]$$ is sufficiently small. This is a marginal guarantee, with probability all over the sequences. 
+\end{defn}
+
+\subsubsection{Background: Exchangability vs Independence}
+Consider a sequence of random variables $X_1,X_2, \cdots X_n$. One particular instance if $n-4$ for example, might be $x_1,x_2,x_3,$ and $x_4$. If the probability of getting the instance $x_4,x_1,x_1,x_2$ is the same, we say the random variables are \vocab{exchangable}. More formally, 
+$$P_{X_1,\cdots,X_n}(X_1=x_1,\cdots,X_n=x_n)=P_\sigma(1)(X_{\sigma(1)}=x_1)\cdots{P_{\sigma(n)}(X_{\sigma(n)})}$$
+where $\sigma$ is some permutation.
+
+These random variables are \vocab{independent} if $$P_{X_1,\cdots,X_n}(X_1=x_1,\cdots,X_n=x_n)=P_1(X_1=x_1)\cdots P_n(X_n=x)$$
+So independence makes no guarantees about exchangability.
+
+They are iid (and exchangable) if  
+$$P_{X_1,\cdots,X_n}(X_1=x_1,\cdots,X_n=x_n)=P_1(X_1=x_1)\cdots P_x(X_x=x)$$ where we can permute the probabilities in any way we desire. Thus, iid implies exchangability although the reverse is not neccesarily true (although there is a similar result shown as follows)
+
+\begin{thm}[De Finetti's Theorem]
+Any exchangeable sequence can be thought of as a mixture of iid sequences. 
+\end{thm}
+
+\subsubsection{Noncomformity}
+We start by defining nonconformity:
+\begin{defn}
+The \vocab{noncoformity} of an exchangeable bag $D_n=\{(x_i,y_i\}_\{i \in [n]\}$ as an input (training data) is a measure of any predictor to rank how unusual any $(x,y)$ is (for example, this could just be the loss). 
+\end{defn}
+
+\begin{ex}
+If we train a classifier $P(y|x,\theta)$ on $D_{n'}$ we can use $$V(D_n;x,y)=-\log{P(y|x,\hat{\theta})}$$
+as a nonconformity measure.
+\end{ex}
+
+One thing to note: we can \textit{not} have the nonconformity measure depends on the order of the training set. 
+
+\subsubsection{Creating the Set}
+We construct a set in response to $x$ by deciding whether to include each $y$ in $C_\alpha(x)$ (this is essentially just hypothesis testing).
+
+Given $\mathcal{D}_n=\{(x_i,y_i)\}_{i \in [n]}$ and $x_{n+1}$ we can create the set by testing each $y \in \mathcal{Y}$ and performing hypotheses tests to see if you could "reject" the predicted $y$s. 
+\begin{itemize}
+    \item Try provisionally setting $y_{n+1}=y$ , creating $\mathcal{D}_{n+1}$
+    \item Calculate $v_i=V(D^{-i}_{n+1}, x_i,y_i), i \in [n+1]$
+    \item Calculate $p$-value for how unusual $y_{n+1}$ is (using your non-conformity measure as a test statistic)
+\end{itemize}
+
+\begin{remark}
+A key point: note that since all the $(x_i,y_i)$s are exchangeable, we have that the $v_i$s must \textit{also} be exchangeable (since they depend only on the $(x_i,y_i)$s as parameters (although with the bag).
+\end{remark}
+
+Just as a reminder, we have 
+$$p\text{-value}=\frac{|\{i \in [n+1]: v_i \ge v_{n+1}\}|}{n+1}$$
+We then include $y_{n+1}$ in our set in $C_\alpha(x_{n+1})$ if $p$-value$\ge \alpha$ (that is, we cannot reject it at significance level $\alpha$). 
+
+\begin{thm}[Vovk et. al]
+A set constructed in this way satisfies $$\pp(Y \in C_\alpha(X)) \ge 1-\alpha$$
+\end{thm}
+
+\newpage
+
+\section{October 12th, 2021: Dimensionality Reduction, PCA}
+
+Today we will begin our study of unsupervised learning. We will be doing so for the next 8 weeks just like we did for supervised learning.
+
+\subsection{Introduction}
+
+We'll first define the term quite broadly. Suppose we have a "box" of numbers (for example, a tensor, array, or matrix). Intuitively, the goal of \vocab{Dimensionality Reduction} is to "reduce" the size of the box in either dimension (or both) by reducing the x-axis (the number of "features") or the y-axis (the training data). 
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10122101.png}
+\end{center}
+
+\subsection{Low-Rank Approximation}
+
+Big data matrices are often low-rank (see here: \url{https://arxiv.org/abs/1705.07474} for more detail). Intuitively, full rank takes more "space" to store (see Strang) which gives us our preference for lower rank matrices for modeling purposes. 
+
+Mathematically, suppose our data lies in a matrix $A$. We hope to find a matrix $A_k$ such that we have $$\min_{A_k \in \text{rank}(k)}\norm{A-A_k}$$
+Then, $A_k$ serves as a \vocab{k-rank approximation} of the matrix $A$. 
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10122102.png}
+\end{center}
+The most economical matrices (size-wise) that store the same matrices (for $A$ that is $n \times p$) are of course the $n \times k$ and $k \times p$ matrices. 
+
+\subsubsection{An Optimal SVD solution}
+The following theorem now gives an optimal SVD solution to our problem:
+
+\begin{thm}[Eckart–Young–Mirsky Theorem]
+Let $A=U\Sigma V^*$. If $k \le \text{rank}(A)$ and $A_k=\sum_{i=1}^{k}\sigma_i u_i v_i^*$ then $$\norm{A-A_k} \le \norm{A-B}, \quad \text{rank}(B) \le k$$
+The same result holds true for any unitarily invariant norm (eg. Frobenius norm, trace norm)
+\end{thm}
+
+By Thursday, come up with things that you like/dislike about the SVD solution. 
+
+\subsubsection{Clustering as Dimensionality Reduction}
+Another way to reduce dimensionality is with represntatives. Suppose you have a collection of columns stored in a matrix $X$ as shown:
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10122103.png}
+\end{center}
+Here, the columns corresponding to the same color are similar. Then, permuting the matrix to put them in the same place we get a matrix $XC$. Then, taking representatives we get a matrix $M$ as shown:
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10122104.png}
+\end{center}
+We now have (intuitively) $X \approx MC$. Note that since $X \in \rr^{d \times n}$, $M \in \rr^{d \times k}$ and $C \in \{0,1\}^{k \times n}$ so the dimensions work out. 
+
+The problem then boils down to defining cost functions. For example, $$\min_{M,c} \frac{1}{2}\norm{X-MC}^2_{F}=\min_{\hat{C}}\frac{1}{2}\norm{X-X\hat{C}^{T}\hat{C}}^2_{F}$$
+
+Intuitively, clustering partitions the data into $k$ separate groups. For each group we choose a representative in the group and eventually get a matrix $M$. 
+
+You can further reorder the points which gives $X \approx RMC$
+
+\subsection{Column Subset Selection}
+
+Suppose that each column in a matrix is a data point. We could choose a subset of the data for our approximation instead of just using SVD. What are the comparative advantages in doing so? The main one is that you are using \textit{actual data} rather than interpolated data (as in the case of $A_k$ in SVD). 
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10122105.png}
+\end{center}
+\textit{Which columns do we select?} This is the basis of the subject of \vocab{sketching} (where you speed up for regression $\norm{Ax-b}$ vs $\norm{(SA)x-(Sb)}$. Other applications include Neural Network Compression and Model Compression. 
+
+Some possible ways; pick the columns randomly using some distribution (something nonuniform). 
+
+\textit{Question:} What happens for a $d \times n$ matrix and we pick more than $d$ columns (more than its rank)? What if the matrix is huge?
+
+The general idea is that intelligent subset selection is a hard problem with a large body of work. 
+
+\subsection{Classic Dimensional Reduction: PCA}
+
+PCA stands for \vocab{Principal Component Analaysis}. Intuitively, it is just ``truncated" SVD. 
+
+\subsubsection{What are "principal" components?}
+The goal of PCA is to identity the \textit{principal} directions in our data. What is the ``shape'' of our data.
+
+Why might we want such directions? Before, for example, we had a very practical application (for dimensionality reduction): to reduce computation costs by compressing the data. The same motivation holds for PCA - we can keep the parts of the data that have high fidelity and importance (\textit{in} the principal directions) and throw away the rest.
+
+\subsubsection{PCA: minimizing projection error}
+
+In 1933, Hotelling suggested a model for such a study: project data onto lower0dimensional affine subspaces and seek to maximize variance of the projectd data thereby capturing directions of variability. Pearson in 1901 defined a siilar model to minimize the "projection error". 
+
+In this section, we show that these two models are essentially the same:
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/10122106.png}
+\end{center}
+
+Suppose we have $n$ points $x_1, \cdots, x_n \in \rr^{d}$. The goal is to project each $x_i$ onto a $k<<d$ dimensional subspace. Here, we prove the result for a $2$ dimensional example.
+
+Observe that the projection onto any shift of the line doesn't change the variance of projection. Thus, assume the line goes through the origin. Say unit vector $u_1$ defines that line. The projections are $$u_1^{T}x_1, \cdots, u_1^{T}x_n$$
+The variance of the projections are then 
+$$\frac{1}{n}\sum_{i}(u_{1}^{T}x_i-u_1^{T}\bar{x})^2=u_{1}^{T}Su_{1}$$ where $S=\frac{1}{n}\sum_{i}(x_i-\bar{x})(x_i-\bar{x})^{T}$. So the problem is to minimize this quantity. In general, we hope to minimize 
+$$\sum_{j=1}^{k}u_j^{T}Su_j$$
+
+The dual view is to minimize the projection error. Now the shifts of the subspace matter. Suppose the target affine subspace $\Sigma$ is spanned by orthonormal vectors $u_1, \cdots, u_k$. Then for each $i$, there exists $a_{i1}, \cdots, a_{ik}$ such that $$x_{i}=\sum_{j}a_{ji}u_j$$
+Now any shifted subspace is related by $\tilde{x}_i= s+ y_i$ for $s \in \text{span}(\{u_{k+1},\cdots, u_d\})$. After a long derivation (see slide 28) we get that the resulting projection error to be minimized is  $$\sum_{j=k+1}^{d}u_j^{T}Su_j$$
+Intuitively this says to maximize the variance error of the projections in the affine space $k$, we merely need to maximize the projection error for the rest of the space! So the two rpobelms are the same!
+
+Ultimately, the idea is to compress data $x \in \rr^{d}$ into a smaller affine space $\rr^{k}$ with PCA (projection \textit{or} variance analysis) and then getting a compressed matrix $$z=U^{T}x$$
+
+\newpage
+
+\section{October 14th, 2021: Matrix and Tensor Approximation}
+
+\subsection{PCA (cont.)}
+\subsubsection{Pros and Cons of SVD}
+Recall from last week we showed that the SVD gives the \textit{optimal} $\norm{A-A_k}$. What are some pros and cons however?
+
+\underline{Pros and Cons of SVD (And thus also PCA)}:
+
+\textbf{Pros:} Computational complexity (the actual solution is \textit{optimal},
+
+\textbf{Cons:} Large Computation costs ($O(n^3)$ to compute SVD!), You miss out on a lot of the local structure (and only focus on the global)
+
+Indeed, PCA is only able to capture linear dimensionality reductions. Consider the following dimensionality reduction of the MNIST digits dataset using PCA:
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10142101.png}
+\end{center}
+and then using a nonlinear reduction:
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10142102.png}
+\end{center}
+Note the latter is much better at preserving local structure.
+
+\subsection{$t$-SNE}
+\subsection{t-SNE: First, look at SNE}
+PCA does global similarity, which potentially suffers from outliers, missing out on local structures, despite being parameter free and easy to use on "new" data. 
+
+How do we create a method senitive to local structure, possibly by doing nonlinear dimensional reduction? 
+
+\underline{Key Ideas:}
+Convert Euclidean distance into conditional probabilities that encode similarity. 
+
+For each point $m$, pretend there's a Gaussian centered at it, and probability of picking a neighbor scales according to euclidean distance. More explicitly, the probability that point $x_i$ would pick $x_j$ as its neighbor, we have:
+$$p_{j|i}=\frac{\exp(-\norm{x_i-x_j}^2/{2\sigma^2})}{\sum_{k \ne i}\exp(-\norm{x_i-x_k}^2/2\sigma_i^2}$$
+Then $$q_{j|i}=\frac{\exp(-\norm{y_i-y_j}^2}{\sum_{k \ne i}\exp(-\norm{y_i-y_k}^2}$$
+
+The optimization problem then becomes $$\min_{Q}\sum_{i,j}p_{j|i}\log\frac{p_{j|i}}{q_{j|i}}$$
+where the term we minimize is called the \vocab{KL-divergence between $P$ and $Q$}
+
+We can optimize this using GD/SGD over the $y_i$ variables (plus some noise). 
+
+\subsubsection{How do we Select The Variances?}
+To ensure the desired amount of entropy/degree-of-uniformity over $p_{j|i}$ we define the \vocab{perplexity}
+$$\prod(P_i) := 2^{H(P_i)}$$
+where $$H(P_i) := -\sum_{j}p_{j|i}\log{p_{j|i}}$$
+What is perplexity? How do we control it? It can be interpreted as a smooth measure of effective number of neighbors. 
+
+\subsubsection{The t-SNE formulation}
+The conditional probability $p_{j|i}$ is also very sensitive to outliers. For $x_i$ an outlier, all pairiwse distances $\norm{x_i-x_j}^2$ is large and the $p_{j|i}$ values are extremely small, so location of low-dimensional $y_i$ has little effect on the cost function. So the location of $y_i$ is not well-determined by other points. 
+
+One way around this is to use "joint probabilities" $p_{ij}=\frac{p_{j|i}+p_{i|j}}{2}$ instead. Why does this choice help? 
+
+\subsubsection{The 't' in t-SNE}
+The main idea in $t$ in $t$-SNE is to use the student distribution instead of Gaussian in mapped (low $d$) space. 
+
+The main reason is to allow moderate distance in high $d$ space to be faithfully modeled by a much larger distance in the mapped space, and thereby, eliminates unwanted attraction of points in mapped space that are moderately dissimilar. 
+
+One lesser known fact about t-SNE is that it actually uses PCA in its implementation. 
+
+\subsection{Matrix Estimation}
+
+\subsubsection{Recommendation Systems}
+How might we recommend content for movies in Netflix? This is a hard problem to solve. One way movies might be represented is by how others have rated them and no features. To each user, we must assign a number to assign recommendations to the user by filling in various values in the matrix of recommendations: 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/10142103.png}
+\end{center}
+
+\subsubsection{Formulation}
+Suppose we have the \vocab{ground truth} $A_{ij}$ is the "ideal" matrix for the recommendation system. We might get "noisy" observations $Y_{ij}$ for a subset of the entries. Subject to some noise model, we have that $Y_{ij} \sim A_{ij}$ for the subset of the entries. 
+
+Our goal is to produce a $\hat{A}_{ij}$ for the whole matrix such that the prediction error is small $\hat{A}_{ij} \approx A_{ij}$. What is an appropriate model? 
+
+\subsubsection{Model: Initial Thoughts}
+Consider an algorithm for matrix estimation, call it $\mathcal{A}$. Given the observation matrix $Y$, $\mathcal{A}$ produces $\hat{A}$. Let $\prod(Y)$ be the matrix obtained by permuting rows, columns of $Y$. Let $\hat{B}$ be produced by $\mathcal{A}$ using $\prod(Y)$ as input. 
+
+Question: is $\hat{B}=\Prod(\hat{A})$? Yes, of course it is. Unless $\mathcal{A}$ is doing something that it shouldn't. So ultimately, the distribution of $Y$ should be row-column exchangable. 
+
+\subsubsection{A Bad Idea: Trivial Regression}
+Doing trivial regression like $$\frac{1}{2}\sum_{(i,j) \in \Omega}(Y_{ij}-\hat{A}_{ij})^2+\frac{\lambda}{2}\sum_{(i,j)} \hat{A}_{ij}^2$$
+This will obviously be minimized when $$\hat{A}=\begin{cases} \frac{1}{1+\lambda}Y_{ij} & (i,j) \in \Omega \\ 0 & \text{otherwise}\end{cases}$$
+
+\subsubsection{Matrix Estimation: Use SVD}
+Now, we made a low rank assumption, why not try using SVD? Lets replace the missing entries of $Y$ by $0$ (or by row/column average or some other hack).
+
+Compute the SVD of $Y$: $Y=U\Sigma V^{T}$. Choose the top $k$ components and rescale $$\hat{A}=\alpha\sum_{k}\sigma_k u_k v_{k}^{T}$$ where $\alpha$ is some rescaling parameter. 
+
+Question: What are some pros and cons of this approach? When might this process actually succeed in recovering the "true" matrix? 
+
+\subsection{Matrix Estimation Via Optimization}
+Suppose $\mathcal{R}:\rr^{n \times m} \to \rr$ captures the model complexity. How do we minimize $\mathcal{R}(Z)$ over $Z \in \rr^{n \times m}$ such that $Z_{ij} \approx Y_{ij}$ for all $(i,j) \in \Omega$. 
+
+Often we use $\mathcal{R}=\test{rank}$ as a popular surrogate. But rank does \textit{not} easy to optimize (it is nonconvex). 
+
+\subsubsection{Convex Relaxation Approach}
+One way to relax this nonconvexity is to replace $\text{rank}(X)$ by the so-called \vocab{nuclear norm}: $$\norm{X}_*=\sum_{j}\sigma_{j}(X)$$ 
+Then the problem goes from minimizing $$\sum_{(i,j) \in \Omega}(Y_{ij}-\hat{A}_{ij})^2$$ such that $\text{rank}(\hat{A}) \le k$ to minimizing it with $\norm{A}_* \le \gamma$. 
+
+Three questions: how do we solve the convex problem? Do we have any computational challenges? And does this relaxtion \textit{recover} the original rank-constrained problem?
+
+\subsection{A Nonconvex (Suvrit-preferred) Approach}
+Recall that we can write $\hat{A}=UV^{T}$ for some $U,V$ that we try to optimize. The problem then becomes finding $$\min \sum_{(i,j) \in \Omega}(Y_{ij}-U_{i}^{T}V_j)^2$$ such that $$U_i,V_j \in \rr^{k}$$
+This problem is obviously nonconvex? So how might we solve it?
+
+\subsubsection{The Alt-Min Heuristic}
+One thign we can do is fix $V$ and then optimize over $U$. This becomes just another least squares problem, which is convex. Then, we can alternative with a fixed $U$ (obtained from the previous step) and optimize $V$ which is another least squares problem. Will this procedure yield the optimum solution? 
+
+Furthermore, are there any other ideas to improve this procedure and/or make it more scalable?
+
+Remarkably, under some "assumptions" all local minima are global! So AltMin, GD, SGD, etc. should all do the jobs for these settings. 
+
+\subsection{Tensor Estimation}
+
+We are running out of time but we will briefly talk about tensor estimation. You can think of in an implementation perspective as an $n$-dimensional array (this is the wrong way to think about it in pure math). 
+
+In general, any problem that we solve using matrices can be generalized to tensors. Many ML problems can be viewed as a tensor estimation. 
+
+\newpage
+\section{October 19th, 2021: Self-Supervised, Contrastive Learning (and some antecedents: Metric Learning)}
+
+\subsection{Breakthroughs in Supervised Deep Learning}
+As time goes by and we discover new state-of-the-art models, we see the error going done (and the accuracy going up). But are we truly performing better or are we just overfitting the model more? 
+
+Now, deep learning is \textit{really bad} without labels: 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/10192101.png}
+\end{center}
+How many labels is sufficient? This is a difficult question to answer. Furthermore, it is often quite difficult to get a lot of labeled data. So how might we learn without the labels? This motivates us into the topic of discussion today: Weakly-Supervised Learning.
+
+The main idea is to generate "proxies" for the labels for data without proper labels and then using them to predict future data. 
+
+We will discuss three main models of weakly-supervised learning: Metric Learning, Self-Supervised Learning, and Contrastive Learning
+
+\subsection{Metric/Similarity Driven Learning}
+The idea behind \vocab{Metric Learning} is to try to determine whether two objects are \textit{similar} to each other or not similar. We can then use this similarilty for classification purposes. 
+
+Now, you can do this by learning a representation by learning a "distance" metric: the images that are semantically similar would then be classified together and so forth. 
+
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/10192110.png}
+\end{center}
+
+
+\subsubsection{Linear Metric Learning Setup}
+Let $x_1,\cdots,x_n$ denote the training data (eg. images, text, etc. where they are of course represented as vectors). The goal is then to learn a linear representation so that in \textit{embedding} space "similar" points are closer to each other and farther away from "dissimilar" ones. 
+
+More generally, we have a set of pairs $(x_i,x_j)$ where we have $(x_i,x_j) \in \mathcal{S}$ if they are of the same class and in $\mathcal{D}$ otherwise. This is a strict generalization of supervised learning as obviously if they have the same labels they are similar. Now, however, even if they are of different classes they can be similar. 
+
+
+So the goal is to learn a linear transformation to respect similarity: 
+$$x \mapsto Lx$$
+As a result we want that for $(x_i,x_j) \in \mathcal{S}$ that the distance between the points in the embedding space $\norm{Lx_i-Lx_j}$ is not too great:
+$$\norm{x_i-x_j} \mapsto \norm{Lx_i-Lx_j}$$
+Now, the key insight is that by linearity we have
+$$\norm{Lx-Lt}^2=(x-y)^{T}L^TL(x-y)$$ and since $L^TL$ is a positve semidefinite matrix, what we really are trying to determine is a positive semidefinite matrix $A=L^{T}L \succeq	0$. Then, all we have to do is find the Cholesky Decomposition to find the linear map $L$. 
+
+\begin{defn}
+\vocab{Mahalanobis distances} are metrics of the form $$d_{A}(x,y)=(x-y)^{T}A(x-y)$$ for positive semidefinite matrices $A$ (usually the covariance matrix).
+\end{defn}
+The aim is then to find Mahalanobis distances $$d_{A}(x,y)=(x-y)^{T}A(x-y)$$ so that $d_A$ is small if the distance between the points are similar (the pair is in $\mathcal{S})$ and large if they are not. The resulting minimization problem was as follows: 
+
+\subsubsection{History of Linear Metric Learning}
+
+Many attempts were made at solving the linear metric learning problem. The zeroth (or naive) model was to penalize distances in similar points ($(x_i,x_j) \in \mathcal{S}$) and reward those that are dissimilar ($(x_i,x_j) \in \mathcal{D}$). The resulting formulation was as follows: 
+$$\min_{A \succeq 0} \sum_{(x_i,x_j) \in \mathcal{S}}d_{A}(x_i,x_j)-\lambda\sum_{(x_i,x_j) \in \mathcal{D}}d_{A}(x_i,x_j)$$
+This model however, has failed empirically and was also shown to be insufficient because poor scaling or bad choice of $\mathcal{D}$ could drive the A to be very large and lead to a useless (nontractable) solution.
+
+The first model used to solve the Metric Learning Problem was that of the \vocab{Mahalanobis Metric for Clustering (MMC)}. The objective was to find $$\min_{A \succeq 0} \sum_{(x_i,x_j) \in \mathcal{S}}d_{A}(x_i,x_j)$$
+such that $$\sum_{(x_i,x_j)\in \mathcal{D}}\sqrt{d_{A}(x_i,x_j)} \ge 1$$
+This problem could be solved with semidefinite programming (which is a convex problem). 
+
+The second model used was that of \vocab{Large margin nearest neighbor (LMNN)}. Inspired by SVM, the idea was to penalize small distances between differently labeled examples: 
+$$\min_{A \succeq 0}\sum_{(x_i,x_j) \in \mathcal{S}}\left[(1-\mu)d_{A}(x_i,x_j)+\mu\sum_{l}(1-y_{il}\xi_{ijl})\right]$$ $$d_{A}(x_i,x_j)-d_{A}(x_i,x_j) \ge 1-\xi_{ijl}, \quad \xi_{ijl} \ge 0$$ where $y_il=1$ if and only if $y_i=y_l$, ie. points $i$ and $l$ are similar/same. 
+
+The third model was that of \vocab{ITML} which used relative entropy between Gaussians. Tons of other models were created later on, although all of them suffered from similar problems. Most importantly,they did not scale well to larger problems with respect to
+\begin{itemize}
+    \item The number of constraints
+    \item The dimensionality of the input data
+\end{itemize}
+
+\subsubsection{New Model: Geometric Approach}
+A new geometric idea developed in 2016 which we now describe. First, recall the naive idea: we can find $A$ such that 
+$$\min_{A \succeq 0} \sum_{(x_i,x_j) \in \mathcal{S}}d_{A}(x_i,x_j)-\lambda\sum_{(x_i,x_j) \in \mathcal{D}}d_{A}(x_i,x_j)$$
+This model however, fails, largely because of how the latter term can explode. However, motivated by the idea that if $a>b$ then $a^{-1}<b^{-1}$ we can write a different optimization problem:
+$$\min_{A \succeq 0} \sum_{(x_i,x_j) \in \mathcal{S}} d_{A}(x_i,x_j)+\sum_{(x_i,x_j) \in \mathcal{D}}d_{A^{-1}}(x_i,x_j)$$
+Now, collect similar points into a scatter matrix $\textbf{S}$ and dissimilar points into $\textbf{D}$: 
+\begin{center}
+    \begin{equation*}
+        &\textbf{S} := \sum_{(x_i,x_j) \in \mathcal{S}} (x_i-x_j)(x_i-x_j)^{T}, \\
+        &\textbf{D} := \sum_{(x_i,x_j) \in \mathcal{D}} (x_i-x_j)(x_i-x_j)^{T}
+    \end{equation*}
+\end{center}
+Then, we can show that an equivalent problem is to find
+$$\min_{A \succeq 0} h(A) := \text{tr}(AS)+\text{tr}(A^{-1}D)$$ which has a closed form solution! This model of \vocab{Geometric-Mean Metric Learning (GMML)} has shown to work similar to other models that are used on problems suitable for linear metric learning. Of course, it is also a thousand times faster (due to the closed form nature of the solution) which is remarkable indeed.
+
+Now, metric learning has wide applications and most importantly it often performs much better than other models! 
+
+\subsection{Self-Supervised Learning}
+
+\subsubsection{What If We Have Just a Few Labels?}
+Now, how do we extract features from data that does not have labels? One idea is to use auxilliary data and/or tasks. This is the idea behind \vocab{self-supervised representation learning} that invents these "fictitious" \vocab{pretext tasks}.
+
+\subsubsection{Self-Supervised Representation Learning}
+So the goal is to train a deep network encoder $f(x)$ using lots of unlabeled data. 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/10192103.png}
+\end{center}
+The idea is to re-encode the data so that it captures the broad information into the data so that we can then use an auxiliary task with ``pretend'' labels that are automatically generated. 
+
+\subsubsection{Pre-training and "Pretext" Tasks}
+Now, there is still \textit{some} supervision going on in creating the invented ``pretext'' tasks. Think of it as a form of ``global supervision'', modeling consistency, invariances, stability, etc.  It is \textit{after} this initial global supervision that we try to optimize on these pretext tasks before fine tuning to output labels $Y$ that can be used for the real labeling tasks. 
+\begin{center}
+\includegraphics[scale = 0.4]{pics/10192104.png}
+\end{center}
+
+\subsubsection{Example Pretext Tasks: Vision}
+Suppose you are trying to determine an image of a cat: you can try splitting an image of a cat. Now you can try to make the neural network try to predict the relative location of the ears, etc. This would serve as a \vocab{pretext task}. Then, the target task may be object detection or something harder. Similarly, you can try to make the network fill in deleted pixels from a photo or so on. Then, with the features learned you can try to determine the object as our \vocab{target task}.
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/10192105.png}
+\end{center}
+
+We need however, that our pretext task be useful: otherwise, the features we learned may not be helpful \textit{at all} in solving our target tasks. 
+
+\subsubsection{Contrastive Pretext Tasks}
+The insight is that there is a more general pretext task that can be used: \vocab{contrastive learning}. We can \textit{define} similar and disimilar objects by adding perturbations to our images for example and then defining similar/disimilar objects. 
+
+So self-supervised learning can be used to advance our models. 
+
+\subsubsection{Why do Pre-Trained Representations Help?}
+
+The common intuition is that the same "semantic knowledge" is the only way to solve the jigsaw is to understand that it is a picture of a cat. 
+
+So how do we formalize what a good representation is? We need to judge our feature representations somehow. 
+
+\subsubsection{Self-Supervision can Accelerate Learning}
+\begin{thm}[Robinson et al 2020]
+If central condition holds and the pretext task has learning rate $O(1/m^\alpha)$, we use $m=\Omega(n^\beta)$ pretext samples, then with probability $1-\delta$, the target task has excess risk $$O\left(\frac{\alpha\beta\log{b}+\log(1/\delta)}{n}\right)+\frac{1}{n^{\alpha\beta}}$$
+\end{thm}
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/10192106.png}
+\end{center}
+
+\subsection{Contrastive Learning}
+\subsubsection{Setting up Contrastive Learning: THe Loss Function}
+We can learn "similarity" scores so that positives are much similar to each other than negatives (we can do so by altering the data)
+\begin{center}
+    \includegraphics[scale = 0.6]{pics/10192107.png}
+\end{center}
+We can then use as our loss function a suoftmax function: $$\min_{f}\ee_{x,x^{+},\{x_i^{-1}\}_{i=1}^{N}}\left[-\log\frac{e^{f(x)^{T}f(x)}}{e^{f(x)^{T}f(x^{+})}+\sum_{i=1}^{N}e^{f(x)^{T}}f(x_{i}^-}\right]$$
+
+Now, how do we get positive and negative examples without labels? 
+
+\subsubsection{Generating "positive" and "negative" examples}
+What we can do is generate random combinations of data \vocab{augmentations} to get positive samples. For negatives, we can uniformly sample at random from the dataset. 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/10192108.png}
+\end{center}
+The more augmentations and transformations you apply, the "effective dataset" size will be larger and so we should benefit in the data. Now, a problem with contrastive learning is doing so many perturbations is often computionally quite expensive. How many perturbations do we apply? This is also a difficult research question.
+
+How do we generate negative samples? Well negatives are typically sampled unifromly at random from the training data. Some pros of uniform sampling:
+\begin{itemize}
+    \item It is easy to implement
+    \item There is no supervision to required guide sampling
+    \item Large negative batches get good coverage
+\end{itemize}
+
+Now, what could go wrong:
+\begin{itemize}
+    \item False negatives: Say you were trying to find negative examples for a dog. You might accidentally sample another dog! 
+    \item Easy negatives: The model already \textit{knows} that the two images are different. So there are \textit{no useful gradient signals} for backprop to really learn anything. The model is already powerful enough so you are really just "wasting" computational resources. 
+\end{itemize}
+Now, as expected as the negative sample size is increased, the total accuracy will increase. Now, a problem: since training data is unlabeled, we cannot directly identitfy false negatives. 
+
+One solution is to use positive and uniform samples to approximate true negatives. The idea is to sample your negatives among the things that your encoder is currently getting wrong. As in the SVM analogy, you really only care about the "close" points. So that's where you sample on.
+
+\subsection{Summary}
+\begin{itemize}
+    \item \textbf{Contrastive Learning:} pushes positive pairs together, negatives apart
+    \item \textbf{False Negatives:} can be partly removed withotu supervision
+    \item \textbf{Not all Negatives are Created Equal:} harder negatives are better
+    \item \textbf{Looking Forward:} making SSL as easy as supervised learning?
+\end{itemize}
+The current problem in research is trying to make Contrastive Learning faster. Training right now in Contrastive Learning is extremely slow.
+
+\newpage
+
+\section{October 26th, 2021: Generative Models, Mixtures}
+
+\subsection{Many Faces of Unsupervised Learning}
+
+There are many possible objectives in unsupervised learning. For example, 
+\begin{itemize}
+    \item Dimensionality Reduction
+    \begin{itemize}
+        \item Finding low dimensional representations, subspaces (eg. PCA)
+        \item eg. visualization (t-sNE)
+    \end{itemize}
+    \item Auxiliary Objectives for Representation Learning
+    \begin{itemize}
+        \item Contrastive estimation of representations that preserve useful information
+        \item Primarily helpful to seed supervised learning
+    \end{itemize}
+    \item Basic Cluster Analysis
+    \begin{itemize}
+        \item Finding coherent groups in the data (matrix factorization)
+        \item Data understanding, visualizaiton, semi-superivsed learning
+    \end{itemize}
+    \item Generative Modeling
+    \begin{itemize}
+        \item Learn to generate objects of varying types (eg. data records, images, text, graphs, etc.)
+        \item eg. missing data, complex inferences, etc.
+    \end{itemize}
+    \item etc.
+\end{itemize}
+
+\subsection{Generative Modeling: Understanding by design}
+There are many types of objects we would like to learn. We want to learn these objects \textit{conditionally}, based on certain priors or conditions. For example, we could learn to fill out corrupted images (or generate completely new images), identify regularities, fill missing values, future graphs, words in a sentence, new molecules, etc.  
+
+The basic challenge is to estimate the distribution (density) $P(x;\theta)$ by taking objects into a representation from data and then generate new examples by sampling $x \sim P(x;\hat{\theta})$. So how do we take our objects and represent them? 
+
+\subsubsection{Formalizing the Problem}
+We now specify the task formally:
+
+Suppose we have objects $x \in \mathcal{X}$ (eg. an image, text, etc.). Now, let the data $$\mathcal{D}=\{x_i\}_{i \in [n]} \quad x_i \sim P^* \text{ taken iid}$$
+Now, we hope to find a parameter $\hat{\theta}$ such that $P(x;\hat{\theta}) \sim P(x;\theta)$. We then hope to sample $x \sim P(x;\hat{\theta})$. Note this task is entirely \textit{unsupervised} since we only have the data, no labels. 
+
+\subsubsection{A Glimpse of the Generative "Landscape"}
+The types of models we can get will vary depending on whether we can \textit{explicitly} or \textit{implicitly} find the probability distribution $P(x;\theta)$ based on the data. A high level "landscape" is given below:
+\begin{center}
+    \includegraphics[scale = 0.45]{pics/10262101.png}
+\end{center}
+Why do we like explicit distributions? This is because we can use the maximum log likelihood $$l(D;\theta) = \sum_{i=1}^{n}\log{P(X_i;\theta)}$$ to find $\hat{\theta})$. Note this requires the explicit form of $P(x;\theta)$ to work. 
+
+Now, if $P(x;\hat{\theta})$ is \textit{implicit}, we can sample $z \sim P(z)$ before passing it through a neural network to get a "generated" model $x = g(x;\theta)$. Then $$P(x;\theta)=P_{z}(g^{-1}(x;\theta))$$ which we hope to estimate.
+
+\subsection{Autoregressive Models}
+
+\subsubsection{Autoregressive language modeling}
+Natural language sentences are variable length: we need to capture this. Let $V$ denote the set of possible words/symbols. There includes $x_i \in V$ that 
+\begin{itemize}
+    \item include an UNK symbol for any unknown word (out of vocabulary)
+    \item <end> symbol for specifying the end of each sentence.
+\end{itemize}
+We wish to learn a distribution over variable length sequence 
+$$P(X_1=x_1, \cdots, X_k = <end>$$
+shorthanded just by $P(x_1,x_2,\codts,x_k)$ where the assumption is that $x_k = <\text{end}>$. Now, by chain rule we can write and model the sequences as 
+$$P(x_1)P(x_2|x_1)P(x_3|x_1,x_2) \cdots P(x_n|x_1,\cdots,x_{n-1})$$
+A \vocab{first-order Markov Model} simply drops the dependencies:
+$$P(x_1,\cdots,x_n;\theta)=P(x_1;\theta)P(x_2|x_1;\theta)\cdots P(x_n|x_{n-1};\theta)$$
+In an RNN language model, "state" is used to summarize prefixes: state $s_k$ compresses $x_1,x_2,\cdots,x_{k-1}$ so that $$P(x_1,\cdots,x_n;\theta)=P(x_1|s_1;\theta)\cdots{P(x_n|s_n;\theta)}$$
+Now, recall that an RNN encoder creates an evolving summary of the sequence prefix (= state) as we apply the model along the sequence. 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/10262102.png}
+\end{center}
+Now our RNN has to also produce an output (eg. a word) at each step in addition to summarizing the prefix sequence. 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/10262103.png}
+\end{center}
+In addition to RNN encoding each prefix sequence, it now also needs to produce a distribution over outputs (eg. words), sample from it, and continue. The output is fed in as an input:
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/10262104.png}
+\end{center}
+Then, the probability that we get some sentence, say "ML can be better <end>" is the product of the individual conditional probabilities for ML, can, be, better, and <end>. Note, this model is \textit{nondeterministic} because we require \textit{sampling} from the distribution. 
+
+\subsubsection{Pixel RNN: auto-regressive image generation}
+We can also generate images iteratively, one pixel at a time using the prefix image as an input to predict the next pixel in the sequence.
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/10262105.png}
+\end{center}
+
+\subsubsection{Autoregressive graph generation}
+We can also generate graphs one node at a time at each step predicting also how the node is connected to other preciding nodes (adjacency vectors $S_i^{\pi}$) 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/10262106.png}
+\end{center}
+
+Note hwoever, that the same graph can be realized in multiple ways auto-regessively (ie. the nodes can be predicted in a different order). The order is thus often a latent variable!
+$$p(G)=\sum_{S^\pi}p(S^{\pi})\bbm{1}[f_{G}(S^{\pi}=G)]$$
+
+\subsection{Steps Toward K-Means Clustering}
+Recall the idea behind k-means clustering: a simple (heurstic) alternating min algoirithm. 
+
+Step 0: Randomly select cluster centers $\mu_1,\cdots,\mu_k$
+
+Step 1: assign each datapoint $x_i$ to its closest cluster center (with respect to the $\norm{}^2$ metric. 
+
+
+Step 2: estimate \textit{new} cluster centers (means) from assigned points. 
+Step 3: Iterate until convergence
+
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/10262107.png}
+\end{center}
+
+Now, let $Q_{ij}$ be the assignment variables of points to clusters. That is, it is either $1$ if cluster $j$ is where point $i$ and $0$ otherwise. Then, $$Q_{ij} \in \{0,1\}. \quad \sum_{j=1}^{k}Q_{ij}=1$$
+We can then cast k-means as a min-min alternating minimization algorithm,
+monotonically minimizing a single objective function
+$$\tilde{J}(Q;\theta)=\sum_{i=1}^{n}\sum_{j=1}^{k}Q_{ij}\norm{x_i-\mu_j}^2$$
+in each step the algorithm would either minimize $J$ with respect to assignments $\{Q_{ij}\}$ or cluster centers $\{\mu_j\}$ as follows:
+
+Step 0: initialize $\mu_1^{0},\cdots,\mu_k^{0}$ from $\theta^0$
+
+Step 1: $Q^{0}-\argmin_{Q}\tilde{J}(Q;\theta^(0))$
+
+Step 2: $\theta^(1) = \argmin \tilde{J}(Q^(0);\theta)$
+
+\subsubsection{Why Not K-Means}
+Many things are not properly accounted for in the k-means algorithm 
+\begin{itemize}
+\item overlapping clusters
+\item different numbers of points in each cluster
+\item different cluster shapes
+\end{itemize}
+We will instead try to explicitly define and estimate a generative process for the examples. 
+
+\subsubsection{Building from Simple Components}
+We can build complex genrative models from simpler components: ie. Bernoulli, Categorical, Univeraiate Gaussian, Spherical Gaussian, etc.
+
+\subsubsection{Exponential Family of Distributions}
+There is an exponbential family of distributions with parameters $\theta \in \rr^m$ and statistics $T(x) \in \rr^m$, given by $$P(x;\theta)=\exp(\theta^{T}T(x)-A(\theta))\mu(x)$$ where $A(\theta)$ normalizes the distribution and $\mu(x)$ is any measure over $x \in \mathcal{X}$. We then have that the log likelihood is given by $$\frac{1}{n}l(D;\theta)=\frac{1}{n}\sum_{i=1}^{n}(\theta^{T}T(x_i)-A(\theta))=\theta^{T}\left(\frac{1}{n}\sum_{i=1}^{n}T(x_i)\right)-A(\theta)$$
+So for the Gaussian, we require only $T(x)=\begin{bmatrix} x \\ x^2 \end{bmatrix}$
+
+\newpage
+
+\section{October 28th, 2021: Mixture Models, Latent Variable Models}
+
+\subsection{Outline}
+Today we will be talking about mixture models and the EM algoirthm. We will then move on to latent variable models along with a few examples. Ultimately we will get to models that are no longer explicitly solvable and use estimation techniques on the model. 
+
+\subsection{Review of $k$-means}
+Recall the formulation of $k$-means, wehre we take as parameters $\theta=\{\mu_1,\cdots,\mu_k\}$ with $\mu_j \in \rr^{d}$. We then have an indicator matrix $Q=Q_{ij}$ with $Q_{ij} \in \{0,1\}$ such that $\sum_{j=1}^{k}Q_{ij}=1$. We then have as a loss function 
+$$\hat{J}(Q,\theta)=\sum_{i=1}^{n}\sum_{j=1}^{k} Q_{ij} \norm{x_i-\mu_j}^2$$
+Note the optimization problem is over \textit{two} independent variables now, over both the means \textit{and} the examples. This "decoupling" of the problem will permeate throughout the lecture. For reasons, we will discuss sooner, rather than minimizing the quantity above, we will maximize the negative of the quantity:
+$$\max \hat{J}(Q,\theta)=\max -\sum_{i=1}^{n}\sum_{j=1}^{k} Q_{ij} \norm{x_i-\mu_j}^2 $$
+Now, one way we might go about maximizing the quantity in a decoupled way:
+\begin{enumerate}[label=(\roman*)]
+    \item Maximize over $Q$: $\max_{Q} \hat{J}(Q,\theta) \mapsto Q$
+    \item Maximize over $\theta$: $\max_{\theta} \hat{J}(Q,\theta) \mapsto \theta$
+\end{enumerate}
+
+This will converge to a \textit{local minimum} although not necessarily a global one. 
+
+\subsection{Mixture Models}
+
+A \vocab{mixture model} involves discrete or continuous latent variables (choices): what we first do is choose a cluster from a distribution of clusters $z \sim P(z)$ and then draw samples $x \sim P(x|z)$ from the corresponding cluster model.
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/10282101.png}
+\end{center}
+If we continue to sample from each cluster, we get a visualization as shown above. Now, in reality we do not know what cluster the points come from since the data is incomplete; ie. we know the data points $x$ but not the clusters $z$. What is the probability of drawing $x$ from our mixture model? This is a standard marginal probability: $$P(x)=\sum_{z=1}^{k}P(x|z)P(z)$$
+\subsubsection{Gaussian Mixture Models (GMM)}
+A $k$-component Gaussian Mixture Model will take the probabilities of the latent variables (the clusters) as probabilities:
+$$P(z=j)=\pi_{j}$$
+We then assume the distribution of points within the cluster $P(x|z)$ is Gaussian, that is $$P(x|z)=N(x;\mu_{z},\Sigma_{z})$$
+with seperate means and covariance (we'll assume the Gaussian is spherical and take $\Sigma_{z}=\sigma_{z}^2 I$). Then 
+$$P(x;\theta)=\sum_{z=1}^{k}P(z)P(x|z)=\sum_{z=1}^{k}\pi_{z}N(x;\mu_{z},\Sigma_{z})$$
+The goal is to estimate the mixture model from unbalanced data $D=\{x_1,\cdots,x_{n}\}$ by maximizing log likelihood: 
+$$l(D;\theta)=\sum_{i=1}^{n}\log{P(x_i;\theta)} = \sum_{i=1}^{n}\log\left[\sum_{j=1}^{k}\pi_{j}N(x_i;\mu_{j},\sigma_j^2I)\right]$$
+We then have our parameters are $\{\pi_1,\cdots,\pi_k,\mu_1,\cdots,\mu_k,\sigma_1,\cdots,\sigma_k\}$. Now of course we could use gradient descent to maximize this quantity. Progress will however, be quite slow, so we instead introduce a new algorithm: the EM algorithm. 
+
+\subsubsection{The Hard EM algorithm}
+We have a set of parameters $\{\pi_1,\cdots,\pi_k,\mu_1,\cdots,\mu_k,\sigma_1,\cdots,\sigma_k\}$ and we can set up a matrix of indicator points $Q=\{Q_{ij}\}$ with $Q_{ij} \in \{0,1\}$ and $\sum_{j=1}^{k}Q_{ij}=1$. We now try to maximize the objective function 
+$$J(Q,\theta)=\sum_{i=1}^{n}\sum_{j=1}^{k}Q_{ij}\log\left(\pi_{j}N(x_{i};\mu_{j},\sigma_j^2I) \right)$$
+The \vocab{Hard EM Algorithm} then 
+\begin{enumerate}[label=(\roman*)]
+    \item Maximizes $J$ over $Q$: $\max_{Q}J(Q,\theta) \mapsto Q$
+    \item Maximizes $J$ over $\theta$: $\max_{\theta}J(Q,\theta) \mapsto \theta$
+\end{enumerate}
+Hard EM fails in that there are cases in which a point could have lied in \textit{two different clusters} with similar probabilities. Hard EM \textit{forces} a strict decision boundary which makes it only give a lower bound for the true objective (of minimizing the loss function in 14.3.1).
+
+\subsubsection{Towards The EM Algorithm}
+
+We now take a Bayesian approach and try to move towards the general EM algorithm. For simplicitly, suppose we just have a single observation $x$. We wish to update the distribution so as to increase
+$$\log\left[\sum_{j=1}^{k}\pi_{j}N(x;\mu_{j},\sigma_j^2I)\right]=\log\left[\sum_{j=1}^{k}Q(z_j|x)\frac{\pi_{j}N(x;\mu_j,\sigma_j^2I)}{Q(z_j|x)}\right]$$
+Now by Jensen's inequality, we have that 
+$$LHS \ge \sum_{j=1}^{k}Q(z_j|x)\log\left[\frac{\pi_{j}N(x;\mu_j,\sigma^2_jI)}{Q(z_j|x_j)}\right]$$
+$$=\sum_{j=1}^{k}Q(z_j|x)\log\left[{\pi_{j}N(x;\mu_j,\sigma^2_jI)}\right]+\sum_{j=1}^{k}Q(z_j|x)\log\frac{1}{Q(z_j|x)}$$
+The term on the left is called the \vocab{weighted complete log-likelihood} and the right hand side is called the \vocab{Shannon Entropy}. 
+
+Now, we claim finding an optimal solution to the lower bound is equivalent to finding an optimal solution for the upper bound: this holds when $$Q(z_j|x)=\frac{P(z_j)P(x|z_j)}{P(x)}$$ which then gives that the lower bound has maximum value $\log{P(x)}$. At this point, we are \textit{exactly} at the log likelihood of the data.
+
+\subsubsection{The EM Algorithm}
+Again we consider the maximization of 
+$$\sum_{j=1}^{k}Q(z_j|x)\log\left[\frac{\pi_{j}N(x;\mu_j,\sigma^2_jI)}{Q(z_j|x_j)}\right]$$
+When we do so, we get $\max_{Q}J(Ql\theta^{0}) \to Q^{(0)}(j|x)=P(j|x,\theta^{(0)})$ and also $\log{P(x;\theta^{(0)})}=J(Q^{(0)};\theta^{(0)})$. 
+
+Now EM iterates lead to a non-decreasing sequence of log-likelihoods:
+the EM algorithm then tries to estimate over $Q$ first (this is the "E" step or \vocab{expectation step}) and then the "M" step (or the \vocab{maximization step}).
+
+\subsection{Examples}
+\subsubsection{A GMM Example}
+A simple $3$-component spherical GMM example: 
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/10282102.png}
+\end{center}
+Here, our initializations matter: what are our mixing proportions $\pi_{j}=\frac{1}{k}$? What are our means selected to be (randomly)? Variances from Gaussian estimates? After initializing, we can find clusters after running the EM algorithm as below:
+\begin{center}
+\begin{figure}[H]
+    \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[scale=0.3]{pics/10282103.png}
+    \end{subfigure}%
+    \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[scale=0.3]{pics/10282104.png}
+    \end{subfigure}% 
+\end{figure}
+\begin{figure}[H]
+    \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[scale=0.3]{pics/10282105.png}
+    \end{subfigure}%
+    \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[scale=0.3]{pics/10282106.png}
+    \end{subfigure} \\
+    \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[scale=0.3]{pics/10282107.png}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[scale=0.3]{pics/10282108.png}
+    \end{subfigure} \\
+    \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[scale=0.3]{pics/10282109.png}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[scale=0.3]{pics/10282110.png}
+    \end{subfigure}
+\end{figure}
+\caption{An Example of the EM algorithm on GMM}
+\end{center}
+
+\subsubsection{GMM Solutions: Varying $k$}
+Now, we can run the GMM with a different number of components. Which one should we choose? We might just take the one with the lowest loss. 
+
+\subsection{Brief Intro to Bayesian networks}
+How might we visualize the dependencies of various marginal/conditional probability distributions to \textit{other} conditional probability distributions?
+\begin{center}
+\includegraphics[scale = 0.5]{pics/10282111.png}
+\end{center}
+The graph helps specify model factorization.
+
+\newpage
+\section{November 2nd, 2021: Latent Variable Models, Variational Learning}
+
+\subsection{Bayesian Networks}
+\subsubsection{Introduction}
+Recall how a Bayesian Network is defined: it is a directed acyclic graph (DAG) that specifies how the probability distribution factors into smaller components (the directed arrows show dependence).
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/11022101.png}
+\end{center}
+Here, we have $u \ind v$ since $$P(u,v)=\sum_{x}P(x|u,v)P(u)P(v)=P(u)P(v)$$ This is only for the \textit{marginal} distributions however, note that $u \not\ind v|x$ (where we can use similar reasoning).
+
+It can be used to articulate how we model the problem and help structure efficient computation about the variables. Note, the graph doesn't specify the actual model parameters themselves, only the distribution. 
+
+\subsubsection{Bayesian Network with Plates}
+Many interesting models have repeated parts. That is, suppose we have the same distribution but $N$ independent variables all identically distributed from the distribution: 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/11022102.png}
+\end{center} 
+We notate this graphically by "Plate Notation" as a shorthand for writing the conditional distribution for many different $x_i$:
+
+Thus the following Bayesian graphs are equivalent: 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/11022103.png}
+\end{center}
+
+Now, note that $z$ is outside the box so it is exclusive and so the $x_i$ are the ones sampled across the model. The following model, denotes that the $z \to x$ are sampled randomly from a distribution:
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/11022104.png}
+\end{center}
+
+\subsubsection{Bayesian Matrix Factorization}
+The idea behind \vocab{Bayesian Matrix Factorization} is \textit{completion}: based on preexisting values in a matrix (the "priors") we try to generate values for the other elements in the matrix.
+
+There is a data generation process for Bayesian Matrix Completion task, expressed in a plate notation: suppose we want to get a matrix based on two different parameters. For example, suppose we have a set of users $u_i \in \rr^{d}$ and $v_j \in \rr^d$ values. Then, we can denote by $x_{ij}$ for example, the ratings of a movie or so on: 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11022105.png}
+\end{center}
+Now, we then have that $$P(x_{ij}|D)=\int_{u_i}\int_{v_j}N(x_{ij},u_i^{T}v_j,\sigma^2)P(u_i,v_j,D)du_idv_j$$ But evaluating $P(u_i,v_j|D)$ is hard, because we do not actually know the distribution $\mathcal{D}$. Our remedy is to introduce approximate methods instead.
+
+\subsection{Multi-Task Clustering}
+Recall we can use a variety models for clustering tasks. Suppose the clusters remain the same across tasks but the proportion of examples in each cluster changes from one task to another. We need to model, in addition, the variability of mixing proportions across tasks:
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11022106.png}
+\end{center}
+Now, the prior over the mixing proportions (the probability of choosing a given cluster) is often chosen to be the \vocab{Dirichlet Distribution} (conjugate to the categorical/multinomial distribution): that is, $$\pi \sim Dir(\alpha_1,\cdots,\alpha_k) \implies P(\pi|\alpha)=\frac{\Gamma\left(\sum_{j=1}^{k}\alpha_j\right)}{\prod_{j=1}^{k}\Gamma(\alpha_j)}\prod_{j=1}^{k}\pi_j^{\alpha_j-1}$$
+Then, $$E\{\pi_j\}=\frac{\alpha_j}{\sum_{l=1}^{k}\alpha_l}$$
+This gives a convex distribution for the cluster that looks like a triangle for three $\alpha$s: 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11022107.png}
+\end{center}
+
+\subsubsection{LDA Topic Model}
+A document might be modeled as a "bag of words". Now, we can sample from a blend of topics for the doc $\theta \sim Dir(\alpha_1,\cdots,\alpha_k)$. For $i=1,\cdots,N$ sample a topic from the chosen blend $$z_i \sim Categorical(\theta_1,\cdots,\theta_k)$$ and then sample a word from the selected. topic: $$w_i \sim Categ(\{\beta_{w|z_i}\}_{w \in W})$$ THe probability of words in a single doc appearing is then $$P(w_1,\cdots,w_{N})=\int P(\theta|\alpha)\prod_{i=1}^{N}\left(\sum_{z_i=1}^{k}\theta_{z_i}\beta_{w_i|z_i}\right)d\theta$$
+
+\subsection{LDA, EM, and ELBO}
+Consider for simplicity a single document $d=w_1,\cdots,w_{N}$. Then, the likelihood that we get this document is $$;(d;\alpha,\beta)=\log\int{P(\theta|\alpha)}\prod_{i=1}^{N}\left(\sum_{z_i=1}^{k}\theta_{z_i}\beta_{w_i|z_i}\right)d\theta$$
+In order to use EM to estimate $\alpha$, $\beta$ we would need to be able to evaluate and maximize the variational lower bound (named from here on by \vocab{ELBO})
+$$l(d;\alpha,\beta) \ge \sum_{z_1,\cdots,z_{N}}\int Q(\theta,z_1,\cdots,z_{N})\log\left[P(\theta|\alpha)\prod_{i=1}^{N}\theta_{z_j}\beta_{w_i|z_j}\right]d\theta+H(Q)=ELBO(Q;\alpha,\beta)$$
+
+\newpage
+
+\section{November 4th, 2021: Deep Generative Models, VAE}
+
+\subsection{Generative Modeling: Goal}
+Our goal for this section is to learn high quality objects (eg. images) merely from the examples or datasets. Quality, however, is not the only criterion we use to measure our success in generating models. Our other criterion is \textit{diversity}: we also need to create models that generalize well and go beyond just our training set. We will get to this topic of high quality object generation next week, when we discuss GANs. 
+
+\subsection{Deep Generative Modeling}
+Today we will go back to the latent variable model where we estimate latent variable models from estimated probability distributions. 
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/11042101.png}
+\end{center}
+Today, we will be talking about \vocab{Variational Autoencoders (VAEs)} that  \textit{implicitly} define distributions $P(x|\theta)$ by \textit{approximating} the log-likelihood.
+
+\subsubsection{Many Ways To ELBO}
+Recall for a single data point $x$, the log likelihood is given by $$\log{P(x|\theta)} = \log\left[\int P(x|z,\theta)P(z)dz\right] \ge \ee_{z \sim Q_{z|x}}\{\log\left[P(x|z,\theta)P(z)\right] + H(Q_{z|x})$$
+With EM, there are no constraints on $Q$, then ELBO max results in the posterior $\hat{Q}(z|x) = P(z|x,\theta)$.
+
+Mean Field: assume that $Q$ factorizes $\hat{Q}(z|x) = \prod_{i}\hat{Q}_i(z_i|x)$. We then maximize ELBO on $Q$ but on the restricted $Q$'s, separately for each new observation $x$.
+
+This can be optimized iteratively. For example, if $Q(z_1,z_2) = Q_1(z_1)Q_2(z_2),$ then we can fix $Q_1(z_1)$ and optimize $Q_2(z_2)$ to maximize
+\begin{align*}
+    \mathrm{ELBO} &= \sum_{z_1}\sum_{z_2} Q_1(z_1)Q_2(z_2)\log P(x,z_1,z_2) + H(Q_1) + H(Q_2)&\\
+    &= \sum_{z_2}Q_2(z_2)\left[\sum_{z_1} Q_1(z_1)\log P(x,z_1,z_2)\right] + H(Q_2) + H(Q_1)&\\
+    &= \sum_{z_2}Q_2(z_2)\left[\mathbb{E}_{z_1\sim Q_1}\log P(x,z_1,z_2)\right] + H(Q_2) + H(Q_1),&
+\end{align*}
+and note that $H(Q_1)$ is essentially constant since we are currently fixing $Q_1$. The term $\displaystyle{\mathbb{E}_{z_1\sim Q_1}\log P(x,z_1,z_2)}$ is a ``mean" log-likelihood. From this, we will get
+\begin{equation*}
+    \widehat{Q}_2(z_2) \propto \exp(\mathbb{E}_{z_1\sim Q_1}\log P(x,z_1,z_2)).
+\end{equation*}
+
+Our strategy for the mean field approximation for today's lecture is to use a parametric model/network that typically factors as the mean field approximation, learned to yield higher ELBO values. 
+
+\subsubsection{Deep Generative Models}
+What are the difficulties in creating deep generative models? We take the following generative steps:
+\begin{enumerate}
+    \item First sample $z \sim P(z)$ from a simple, fixed distribution (for example Gaussian: $N(0,I)$)
+    \item Map the resulting $z$ through a deep model $x = g(z;\theta)$
+    \item Then, assume the observed images are noisy versions, ie, $P(x|z;\theta)= N(x;g(z;\theta),\sigma^2 I)$.
+\end{enumerate}
+
+Why is it possible to map a simple distribution over inputs to a complex distribution over outputs?
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/11042102.png}
+\end{center}
+
+\subsubsection{Variational Autoencoders (VAEs)}
+Now, the challenge in these generative steps is that the model is difficult to train since $z$ is unobserved. 
+
+In VAEs, we infer $z$ using another network. Often, this encoder network predicts the mean and standard deviations of each coordinate of $z$, conditioned on $x$. The two networks need to be learned together. We learn bot the encoder and the genrated by stochastic gradient ascent steps on the lower bound objective (ELBO): 
+
+\end{document}

@@ -1,0 +1,479 @@
+\documentclass[11pt]{scrartcl}
+\usepackage{brian}
+\title{\Large 6.867 Notes\\ 
+\large Taught by Tommi Jaakkola, Suvrit Sra, Pulkit Agrawal}
+\subtitle{}
+\author{\small Brian Lee}
+\date{\small Fall 2021}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[center]{caption}
+\usepackage{float}
+
+\setcounter{section}{20}
+
+\begin{document}
+\section{November 30th, 2021: Decision Making I}
+
+Today we will jump forward and begin our discussion of \textit{decision making}.
+
+Most industrial robots today are \textit{hard-coded} (or \vocab{unimate}), ie. all the behavior it uses is memorized or pre-learned. Models after used if/else statements to diversify the types of actions it could make. 
+
+More modern robots use self-learnt behaviors to imitate human behavior (ie. as in self-driving cards). This may be required since context may often determine the requisite course of action: more demonstrations must be shown to the robot to help it learn the requisite actions. This "in-between" between completely self-learned and unimate learning is called \vocab{imitation/behavior cloning}. 
+
+\subsection{Imitation/Behavior Learning}
+
+First, consider the following preliminary example: suppose we are given a white billiard and we try to pocket a yellow ball. What force (vector) must be applied? 
+
+\begin{center}
+\includegraphics[scale = 0.25]{pics/11300121.png}
+\end{center}
+Now, one way to think of the problem is as a \textit{supervised learning problem} where the inputs are images (ie. the setups of the board) and the output is an action (the requisite force vector). Indeed, neural networks have been highly successful in classifying vision problems. 
+
+More interesting than billiards, we might try to apply the same framework to a more complicated game, like ATARI or some other video game. The question is, can we apply the same framework or not? 
+
+In supervised learning, we have that \textit{humans} label objects first (such as a cat) and in a similar manner we might leverage humans to give us data to give us the right action at each step in the video game. The machine then learns by \textit{imitation} and was how the earliest versions of self-driving cars worked. 
+
+More formally, at each state $x_{t}$ the robot might output some action $a_{t}$ and so on and so forth. Thus, given data of the form $(x_t,a_t)$ we can learn some policy (or function) using the classic supervised learning paradigm to minimize the KL-divergence between the predicted and expert actions (by "expert actions" we mean the actions that the human/expert observer gives us)
+\begin{center}
+    \includegraphics[scale = 0.25]{pics/11300221.png}
+\end{center}
+
+More formally, we define policies in terms of the Markov Decision Process:
+\begin{defn}
+A \vocab{Markov Decision Process} is a tuple of the form $(S,A,P,R)$ where $S$ contains the internal states of the agent, $A$ the actions of the agents, $P$ a transition matrix that contains the probabilities of all transitions from one state to another. $R$ comprises the reward function for the agent. It takes as input the state of the agent and outputs a real number that corresponds to the agent’s reward.
+\end{defn}
+
+\begin{defn}
+A \vocab{policy} $\pi_\theta(s): s \to p(a|s)$ gives the probability distribution over your actions at a given state (based on the Markov Decision Process). For discrete cases, it can also be seen as a function $\pi_\theta(s):s \to A$ which gives an action for every state $s$ that you input.
+\end{defn}
+
+A similar idea is used for self-driving cars. Of course, at some points the         ``cloned'' policies can go out of distribution in which case we have the \vocab{co-variate shift} problem in which case we need to collect more data. 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11300321.png}
+\end{center}
+
+For self driving cars, this often takes the form of a human driver in between when the machine does not know how to make a decision.
+
+Data collection and behavior cloning however can be tedious. Though there are some fixes to this problem however, there are many open issues. 
+
+There is another issue beyond just covariate shift and data collection however: the demonstrations themselves may be sub-optimal. Thus, our models can \textit{only} be as good as the expert or the demonstration and are thus bounded above in this aspect. We often want, however, to achieve superhuman performance without having to tell the machine what to do at every step.
+
+So how \textit{do} we achieve superhuman performance? How do we make the machine figure out it's own decision making rules? This is the idea behind \vocab{reinforcement learning} which we now introduce. 
+
+\subsection{Reinforcement Learning: An Introduction}
+
+Suppose we are trying to predict a policy: $\pi_\theta(a|s)$. Now, in \vocab{reinforcement learning} the objective is to maximize some sort of \vocab{reward} $r_t$ compared to in supervised learning where we try to maximize the probability of the \textit{ground truth} or what the exper tells us. 
+$$\text{RL objective: } \max_\theta{r_t} \quad \quad \text{SL objective: } \max_{\theta} p(a^{gt}|s_t)$$
+The RL objective is usually harder than the SL objective since it can not only be non-differentiable, but because the reward for one action provides no information about the rewards for others (unlike in SL where the probabilities of the actions must sum to $1$). 
+
+One step rewards are also insufficient since we care about the rewards in the long term: $$\max_{\theta}\sum_{t}r_t$$ This is what makes sequential decision making (aka RL) hard. 
+
+\subsubsection{The Problem}
+The problem is now as follows: given a list of states, actions, and rewards (as in a trajectory), how do we maximize rewards? 
+$$s_1,a_1,r_1,s_2,a_2,r_2, \cdots$$
+\begin{center}
+\includegraphics[scale = 0.5] {pics/11302104.png}
+\end{center}
+Our goal is then to maximize the rewards under some time $T$: how do we find $$\max\sum_{t=1}^{T}r_t$$
+Now, the states do satisfy some environmlent constraints $$s_{t+1}=f(s_{0,t},a_{0,t}) \quad a_t=\pi(s_{0,t},\theta)$$
+The central challenge in RL is thus \vocab{exploration-exploitation}. 
+
+\subsubsection{Exploration-Exploitation}
+
+Here, we get to the fundamental problem in reinforcement learning that differentiates itself from supervised learning: consider  the problem of trying to hit the yellow balls, one with reward $+1$ and the other of $+5$. 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/11302105.png}
+\end{center}
+Unlike in SL, the dataset is not \textit{given} to us: it is only until we either hit a wall or a ball that we know what the rewards are. Thus, if we do not explore sufficiently, we can get myopic and not get the optimal reward. On the other hand, to much exploration can be slow, expensive, and learn sub-optimal behavior.
+
+This probelm is a real problem in industry as well: for example, in Spotify the exploitation would be to try to recommend more music that you like. However, if exploration is prioritized, you may get recommend music you do not even want to listen to: 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/11302106.png}
+\end{center}
+
+The question of interest is to thus find a method that will achieve the highest reward. 
+\subsubsection{Multi-Arm Bandits}
+Consider a landing page for your website (eg. Macys).. Depending on the user, we might want to take different actions so that they see different thing. For every action, there is a different reward of course.
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11302107.png}
+\end{center}
+These rewards are \textit{stochastic} since they depend on users who are inherently stochastic. Thus, at different times we have different rewards for individual users. Our goal is then to maximize reward over time: 
+$$\sum_{t=1}^{T}r(a_i^{t}) \forall{i} \in [1,N]$$
+This problem is called the problem of \vocab{multi-arm bandits} because we have to maximize reward with \textit{multiple} different actions (the name comes from the idea of a casino player trying to maximize reward on multiple slot machines).
+
+How do we choose which ``arm'' to pull? Assume for now that the rewards are deterministic.
+
+Now one possible strategy is to first return the average of the $i$th arm $$\mu_i = \frac{1}{k_i}\sum_{k_i}r(a_i)$$ at each step. 
+
+That is, the strategy is to \textit{explore first}: first we sample each arm equally and and find the mean reward of some action during its reward phase $\approx \frac{K}{N}$. Then, after $K$ rounds, choose arm with highest average reward $\mu_i$. Then, only take the highest rewarding action for remaining $T-K$ rounds (that is, we exploit what we thought was the best arm). 
+
+Now, the total reward of selected actions is $$R=\sum_{t=1}^{T}r(a_i^{t})$$
+Now, suppose we choose an \vocab{oracle} (an imaginary source of the "best" actions) $$R^*=\sum_{t=1}^{T}r(a_i^{t^*})$$
+Now, we try to minimize the \vocab{regret} of choosing selected actions: $$\norm{R^*-R}$$
+Now, in the worst case, the regret can be at most $T$ (assuming WLOG the rewards $r$ are bounded in $[0,1]$). Explore first gives us bounds on the worst possible reget at $T^{2/3}\times O(N\log{T})^{1/3}$ (up to scaling of the rewards). 
+
+Now there are other models of explore-first algorithms (eg. Non-adaptive exploration, Adaptive exploration, etc.). Why do we use RL however? The idea is that you can get much more performance \textit{earlier} (in less time! Less computation!)
+
+Does there, however, exist an \textit{optimal} algorithm to minimize the regret of the algorithm $\norm{R^*-R}$? 
+
+\subsubsection{Upper Confidence Bound Algorithm} 
+
+It turns out there is (up to log factors) in the \vocab{Upper Confidence Bound (UCB) Algorithm}. The key is that rather than performing exploration by simply selecting an arbitrary action, the UCB algorithm changes its exploration-exploitation balance as it gathers more knowledge of the environment. 
+
+If we were to be completely greedy we would at any time $t$, choose the action with the highest mean reward $\mu_i(t)$. 
+
+In UCB, however, we add an exploration bonus for actions we have yet to explore (or ``rare'' actions):
+the action chosen at time $t$ is given by $$a_{t}=\arg\max_{i} \mu_{i}(t)+\sqrt{\frac{4\log{t}}{k_i}}$$
+The algorithm can be thought of as being split into two phases: an exploitation phase (the first term) that tries to maximize 
+``optimism in the fact of uncertainty'', ie. just choose the current option that looks best if we have no better information. 
+
+The second term serves as the ``exploration'' part of the algorithm which favors $i$ that have yet to be tried very often (in which case the $k_i$ is small, ie. maximizes the second term). Now, while exploring we do not have access to $\mu_i$ so we instead use the empirical estimate $\hat{\mu}_i$ based on currently available parameters. Thus, we have $$a_t=\arg\max_{i}\hat{\mu}_i(t)+\sqrt{\frac{4\log{t}}{k_i}}$$
+Now, the UCB algorithm has been shown to have worst possible regret $(NT\log{T})^{1/2}$ (which has been shown to be optimal up to log factors) with an upper bound on the average number of sub-optimal actions: $$\frac{16|A|\log{T}}{\Delta^2}+O(1) \quad \Delta = \mu_{best}-\mu_{second_best}$$ and $|A|$ is the number of actions. 
+
+\subsection{Contextual Bandit}
+Now, suppose we have more information or \textit{context} about the scenario: for example, in the website landing page, suppose we know before-hand that our users are \textit{computer-savvy} (eg. while recommending podcasts). We then can improve performance by tackling the problem of \vocab{contextual bandit} compared to \vocab{context-free bandit} that makes use of this new contextual information.
+
+\subsubsection{Linear Upper Confidence Bound Algorithm (LinUCB)}
+
+For this case, the idea is that we now have rewards based on context: $r(a_2,s_2)$ and so on. Now, assume that the rewards are approximately \textit{linear} in context: ie. $$\mu(a|s)=s_a\cdot \theta_{a}$$ where $\theta_{a}$ is fixed but unknown. The strategy is then to select the arm with the highest UCB: $$\text{UCB}_{t}(a|s_t)=\max_{\theta \in C_t}s_{t,a}\cdot\theta_{a}$$
+This algorithm is cslled \vocab{Linear UCB (LinUCB)}.
+
+\subsubsection{Disjoint LinUCB}
+To study linear UCB, we first study a simplified version of LinUCB called \vocab{Disjoint Linear UCB}. Here, we have disjoint parameters $\theta_{a_i}$ for each action at each time state:
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/11302109.png}
+\end{center}
+Initially the parameters $\theta_{a_i}$ are randomized. We first estimate the reward for each action $$\hat{r}_{t}^{a}=s_{t}\theta_{t}^{a}$$
+Then, the reward matrix at all time steps $t$ is given by $$\hat{R}^{a}_{0:t}=S_{0:t}\theta^a$$
+We then try to solve for the parameters by optimizing $$\min_{\theta_a}\norm{R^{a}_{0:t}-\hat{R}^{a}_{0:t}}_2^{2}$$
+Alternatively (and perhaps more accurately), we can use ridge regression to get the parameters $$\hat{\theta}^{t}_{a}=(S^{T}_{0:t}S_{0:t}+\lambda{I})^{-1}S^{t}_{0:t}R^{a}_{0:t}$$
+$$\theta^{t}_{a}=(X^{T}_{0:t}X_{0:t}+\lambda{I})^{-1}S^{t}_{0:t}X^{a}_{0:t}$$
+where $X$ are the features of $S$. We then add an exploration bonus: 
+$$\alpha\sqrt{x^{T}_{t,a}A_{a}^{-1}x_{t,a}}$$
+
+Other more advanced models for UCB exist, including hybridUCBs which combine/share certain parameters between a few actions. 
+
+\subsection{When Do We Use Reinforcement Learning?}
+
+Now, when is it suitable to use reinforcement learning? One good example is when the computational costs of searching the entire search space is simply computational infeasible: for example, in chess/go or any other highly complicated games it is highly important for us to "intelligently" explore the new space to create insights. 
+
+Indeed, in urban simulation, self driving cars, robot dexterity, among other topics the search space may often be too big to do otherwise. 
+
+Another time we might use RL is to create \textit{superhuman performance}: ie, to beat human performance because of suboptimal demonstrations. 
+
+\newpage
+
+\section{December 2nd, 2021: Decision Making II}
+
+In this lecture, we continue our discussion of decision making. Last lecture, we mainly discussed how supervised learning diverges from decision making (using bandits and contextual bandits to solve the exploration-exploitation problem).
+
+Now, in contextual bandits, actions taken don't change future states. In reality, this is not the case. In this lecture, we study the case where actions taken by an agent also affect the future states. 
+
+Now, sequential decision making can get very time-consuming, with many possible cases to search (a decision tree can grow exponentially). Thus, we will consider the special case where the transition only depends on the previous state, and here, the sequential decision making process will not explode into checking an exponential number of cases.
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/12022101.png}
+\end{center}
+In this case, search appears to be easier, which is why we try to solve problems in this scenario and then try to link it to the problem with more general historical dependence.
+The above assumption (to have the states depend only on the previous state) is called the \vocab{Markov assumption} as shown below:
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/12022102.png}
+\end{center}
+
+\subsection{Markov Decision Processes}
+
+So we start with the Markov case: our objective, as before is to maximize reward
+$$\max\sum_{t=1}^{T}r_t$$
+By the Markov assumption, we have the following transition states:
+\begin{equation*}
+    s_{t+1} = f(s_t, a_t) \text{ and } a_t = \pi(s_t;\theta).
+\end{equation*}
+with Markov reward function
+\begin{equation*}
+    r_t = g(s_t,a_t).
+\end{equation*}
+This formulation is called a \vocab{Markov Decision Process} since the state, action, and reward all satisfy the Markov Assumption. 
+
+\begin{ex}
+Suppose we have a 2D cheetah and we are trying to get it to run. 
+\begin{center}
+    \includegraphics[scale = 0.2]{pics/12022103.png}
+\end{center}
+We might at each state for example, have the location/rotation of the joints. Alternatively, we might have the image itself (or both!). The actions we might take may be the torques we apply to each of the joints. The "rewards" might come from the velocity of the cheetah. 
+
+In this example, it is reasonable to say that the functions are Markov with states /actions/rewards depending only on the directly previous inputs. 
+\end{ex}
+
+Unfortunately, this assumption can often be too simple. In the cheetah's case for example, we might care about acceleration as well (which depends on previous states). One way we could remedy this is to either have the states depend on the previous acceleration as well. Alternatively, we can alter the state dependence $s_{t+1}$ to depend on both $s_{t}$ and $s_{t-1}$ (to get an approximation of the acceleration with the average acceleration). Then,
+\begin{equation*}
+    s_{t+1} = f(s_t,s_{t-1},a_t)
+\end{equation*}
+since the velocity at time $t+1$ will depend on the acceleration at time $t$. This however, is no longer Markov. We can, however, expand the state space to make the problem Markov, by considering a new kind of ``state," which is an aggregate of $s_{t+1}$ and $s_t$ (ie. let $s'_t=(s_{t},s_{t-1})$)
+
+In general, we can do this kind of expansion to make any problem Markov, but this comes at a cost: \vocab{data sparsity}.
+
+\paragraph{The Data Sparsity Problem}
+Consider a problem with two possible states: red and green. If the system is Markov, then we will see many occurrences of each possible state. However, if we have to expand the state spaces to sequences of two states, such as (red, red), (red, green), (green, red), and (green, green), then each of these new states will occur less often and will thus be ``sparser''. Thus, as the state space is expand further, we will need more data to make any kinds of accurate estimates. Then, as $t$ increases the data sparsity problem increases as well.
+
+So, although in theory we can take any non-Markov problem and turn it into a Markov problem, we can not avoid the data inefficiencies. 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/12022104.png}
+\end{center}
+
+\subsection{Policy Optimization}
+Suppose we have.a trajectory (for our cheetah) $$\tau=(s_1,a_1,r_1,s_2,a_2,r_2,\cdots,s_{t-1},a_{t-1},r_{t-1}, s_{t})$$
+In general, we try to maximize the expected value of the reward: $$\max_{\theta}\ee_{\tau}[R(\tau)]$$
+Why do we need the expectation? This is for two reasons:
+\begin{itemize}
+    \item The environment is stochastic (eg. the states/rewards/etc.)
+    \item The policy can be stochastic 
+    \item Exploration 
+\end{itemize}
+
+\begin{ex}
+Consider for example, a two-player game of rock paper scissors. Consider the types of policies for rock paper scissors. A deterministic policy (eg. always rock) is easily exploited. Thus, a stochastic (in this case uniform random) policy is optimal and we get a Nash equilibrium.
+\end{ex}
+
+Now, for a given state, we often associate a \vocab{value function} that tells us roughly how ``good'' it is for us to be in some state (with respect to some policy $\pi$). We define the value function to be the expected sum of the rewards that the policy expects to get from some state $s$ (up to some \vocab{discount factor} $\gamma < 1$)
+\begin{equation*}
+    V(s_{t_0}) = E_{\tau}\left[\sum_{t = t_0}^{\infty}\gamma^{t - t_0}r_t\right]
+\end{equation*}
+By linearity of expectation, we thus get that 
+\begin{equation*}
+    V(s_{t_0}) = r_{t_0} + \gamma V(s_{t_0 + 1})
+\end{equation*}
+
+\paragraph{Sequential Decision Making as Shortest Path}
+For deterministic finite-state problems with a finite number of paths, we can simply enumerate all possible paths, choosing the highest rewarding one. 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/12022105.png}
+\end{center}
+However, this is (as you may imagine) extremely computationally inefficient. Using dynamic programming, we can solve this problem much more efficiently. Thus, a large portion of reinforcement learning is actually just dynamic learning assuming we have everything is deterministic, we know our state space, the states are finite, we know our states to begin with, and that our states are discrete).
+
+The idea is thus to use dynamic programming to backtrack from the final state while maximizing reward. 
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/12022107.png}
+    \includegraphics[scale = 0.3]{pics/12022106.png}
+\end{center}
+We thus can figure out the optimal value of the initial state $V_0(s_0)$ by the following:
+\begin{thm}[Dynamic Programming]
+For every initial state $s_0$, the optimal value $V^*(s_0)$ is equal to $V_0(s_0)$, given above. Furthermore, if $a^*_t = \pi^*_t(s_t)$ minimizes the right side of the above for each $s_t$ and $t$, the policy $\pi^*=(\pi^*_0,\cdots,\pi^*_{T-1})$ is optimal
+\end{thm}
+
+\begin{ex}
+Suppose we try to create a cleaning robot. The robot can be in one of two states: high or low energy.
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/12022108.png}
+\end{center}
+Here, we know the state space, the states are discrete, and we know the transitions:
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/12022109.png}
+\end{center}
+\end{ex}
+
+For each value function $V^\pi (s)$, which depends on the policy $\pi$, we have the recursive relation
+\begin{equation*}
+    V^{\pi}(s) = R(s, \pi(s)) + \gamma \sum_{s' \in S}p(s' | s, \pi(s))V^{\pi}(s')
+\end{equation*}
+where $s'$ is the next state, $S$ is the state space, and $p(s' | s, \pi(s))$ is the transition probabilities. Letting $\pi(s) = a$, we get the simplified equation
+\begin{equation*}
+    V^{\pi}(s) = R(s, a) + \gamma \sum_{s \in S}p(s' | s, a))V^{\pi}(s').
+\end{equation*}
+An optimal policy should satisfy 
+\begin{equation*}
+    V^{\pi*}(s) \ge V^{\pi}(s) \quad \forall s \in S, \pi: S \to A,
+\end{equation*}
+and it turns out that it always exists!
+\begin{thm}[Optimal Policy Theorem]
+The optimal policy exists and its value function satisfies the \vocab{Bellman Equation}:
+\begin{equation*}
+    V^{\pi*}(s) = \max_{a \in A}\left[R(s, a) + \gamma \sum_{s' \in S}p(s' | s, a))V^{\pi*}(s')\right].
+\end{equation*}
+\end{thm}
+The proof of this theorem gives a hint as to how to find the optimal policy.
+\begin{proof}
+Consider a random policy $\pi$ with value function satisfying 
+\begin{equation*}
+    V^{\pi}(s) = R(s, a) + \gamma \sum_{s' \in S}p(s' | s, a))V^{\pi}(s').
+\end{equation*}
+Then, we can improve the policy by considering a new policy $\pi'$ with larger value function:
+\begin{equation*}
+    V^{\pi'}(s) = \max_{a \in A}\left[R(s, a) + \gamma \sum_{s' \in S}p(s' | s, a))V^{\pi}(s')\right].
+\end{equation*}
+
+We then show that $V^{\pi'}(s)$ is optimal with it converging to a unique value. Now we have that at some time $t+1$ (here we sum up to a finite time) that $$V^{\pi^{k+1}}(s)=\max_{a \in A}\left[R(s,a)+\gamma\sum_{s' \in S}p(s'|s,a)V^{\pi^k}(s')\right]$$
+Then, the difference from the optimum is given by $$\norm{V^{\pi^k}-V^{\pi^*}}_\infty=\max_{s \in S}|V^{\pi^k}(s)-V^{\pi^*}(s)|$$
+It can be shown with some manipulation that 
+$$V^{\pi^{k+1}}(s)-V^{\pi^*}(s) \le \gamma\max_{a \in A}\left[\sum_{s' \in S}p(s'|s,a)|V^{\pi^k}(s')-V^{\pi^*}(s')|\right] \le \gamma\norm{V^{\pi^k}(s')-V^{\pi^*}(s')}_\infty$$
+Since $\gamma<1$ as $t \to \infty$, we have that we will converge to a unique optimal value.
+\end{proof}
+
+It is important to note that though this theorem says there is a unique optimal value function, there could be \textit{multiple} optimal policies.
+
+\subsubsection{Value Iteration}
+Using the above theorem, we can construct an algorithm to find an optimal policy. We call this algorithm \vocab{value iteration} (or \vocab{policy iteration}) as we describe now:
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/12022110.png}
+\end{center}
+We start by initializing the policies $\pi(s) \in A(s)$ and values $V(s) \in \rr$ for each state $s \in S$. We then try to evaluate the policy by iterating the Bellman Equation (maximum step) to find an approixmation for the optimal policy value function. Then, we try to improve policy by setting $\pi(s)$ to be the argmax. Then, we reevaluate our new policy and repeat. Then, after a few iterations we can converge to an optimal policy (and value function although this may take much more time). 
+
+Now, what assumptions in this algorithm? 
+\begin{itemize}
+    \item \textbf{Closed World Assumption}: We assume we have access to all possible states \textit{a priori} to compute the expectations
+    \item \textbf{Discrete State Space}: We have guarantees of being able to explore all possible states.
+    \item \textbf{Knowledge of Transition Models:} We know all the transition models and actions, etc.
+\end{itemize}
+
+\subsection{Off-Policy Learning}
+We will now get rid of some of the assumptions we made by using $Q$-functions. We will then describe deep $Q$-learning, a reinforcement learning method used often in video games.
+
+We first define the $Q$-function:
+\begin{defn}
+For a state $s_{t_0}$ and an action $a_{t_0}$ we define the \vocab{Q-function} 
+\begin{equation*}
+    Q(s_{t_0},a_{t_0}) = r(s_{t_0},a_{t_0}) + \gamma \ee_{\tau} \left[\sum_{t = t_{0} + 1}^{\infty} \gamma^{t - (t_0 + 1)}r_t \right]
+\end{equation*}
+\end{defn}
+Then we can perform a similar iteration, known as the \vocab{Q-Value Iteration}:
+\begin{equation*}
+    Q^{\pi^{k+1}}(s,a) = R(s,a) + \gamma \sum_{s' \in S}p(s'|s,a) \max_{a'}Q^{\pi^k}(s',a'),
+\end{equation*}
+Now note that since we take the maximum over all actions $a'$ (that is the greedy choice), this iteration actually is \textit{independent} of the choice of policy $\pi$. We can thus write the equation as
+\begin{equation*}
+    Q^{t}(s,a) = R(s,a) + \gamma \sum_{s' \in S}p(s'|s,a) \max_{a'}Q^{t-1}(s',a'),
+\end{equation*}
+and if we know the optimal Q-Function, we can easily recover the optimal policy as
+\begin{equation*}
+    \pi^*(s) = \arg\max_{a}Q^*(s,a).
+\end{equation*}
+However, this method also has its challenges since we do not know the transition probabilities $p(s'|s,a)$. In practice, we approximate the new $Q$-values by sampling to update the Q-Function. We do this by training through something called an $\epsilon$-greedy strategy which we discuss soon. Now, using samples we follow the following method:
+\begin{itemize}
+\item The target for $Q^t(s,a)$ satisfies
+\begin{equation*}
+    y_t = r + \max_{a'} Q^{t-1}(s',a').
+\end{equation*}
+\item We compute the error of this target as
+\begin{equation*}
+    e_t = y_t - Q^{t-1}(s,a)
+\end{equation*}
+\item We update the Q-value using the update rule
+\begin{equation*}
+    Q^t(s,a) = Q^{t-1}(s,a) + \alpha e_t
+\end{equation*}
+where $\alpha$ is the learning rate. 
+\end{itemize}
+We then get that $$Q^{t}(s,a)= Q^{t-1}(s,a)+\alpha\left(r+\max_{a'}Q^{t-1}(s',a')-Q^{t-1}(s,a)\right)$$
+Alternatively, this can be seen as a weighted sum
+$$Q^{t}(s,a)= (1-\alpha)Q^{t-1}(s,a)+\alpha\left(r+\max_{a'}Q^{t-1}(s',a'))\right)$$
+This process is called \vocab{Q-Learning}. 
+
+\subsubsection{Fully fitted $Q$-iteration}
+Before we continue our discussion of $Q$-learning, we describe how to work with nondiscrete states (eg. continuous states). In this case we have a dataset
+\begin{equation*}
+    D = \{(s_i, a_i, r(s_i,a_i), s_i'); i \in [1,N]\}
+\end{equation*}
+and we use a new function $Q_{\phi}(\mathbf{s},\mathbf{a})$ with parameters $\phi$, where $Q$ is replaced by a neural network. We then follow the following algorithm, getting rid of the expectation but instead updating based on parameters instead:
+\begin{center}
+    \includegraphics[scale = 0.35]{pics/12022111.png}
+\end{center}
+This process is called \vocab{fully fitted $Q$-iteration}. Now, for large datasets, continuously computing and optimizing the error terms is impractical. We must thus resort to stochastic gradient descent:
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/12022112.png}
+\end{center}
+
+So is $Q$-learning just gradient descent? \textit{No}! This is because the $\textbf{y}_i$ term $$r(s_i,a_i)+\gamma\max_{\textbf{a}'}(Q_\phi(\textbf{s}_i',\textbf{a}_i'))$$
+has no gradient through the target value. Now, since this depends on $\phi$ we assume it to be constant in our optimization step. 
+\subsubsection{Q-Learning}
+We now follow an \vocab{$\epsilon$-greedy} strategy to sample our $Q$-values: 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/12022113.png}
+\end{center}
+
+That is, we sample with a (decaying) probability $\epsilon$ randomly from the action space and with probability $1-\epsilon$ follow the choice of maximum possible value $Q$. This gives us a solution to the exploration-exploitation problem for the $Q$-learning paradigm.
+
+Now, in this process however, since the agent \textit{itself} finds the training data (compare with supervised learning where all of it is provided to us) it is much more likely that we can get stuck in bad local minima. 
+
+\newpage
+
+\section{December 7th, 2021: Decision Making III}
+
+\subsection{Replay Buffers and Target Networks}
+Last lecture, we found that it is much easier to get stuck in local minima in reinforcement learning. How might we overcome this? One method is through \vocab{data diversity}.  
+
+The idea is to include memories of past experiences and adding old samples to our previously collected data. This is what we call a \vocab{replay buffer} whose exact implementation depends on the hardware constrains of the system at hand.
+
+\begin{center}
+    \includegraphics[scale = 0.25]{pics/12072101.png}
+\end{center}
+
+We then do $Q$-learning by collecting data from batches.
+
+Another alternative is to just not change the inner loop:
+\begin{center}
+    \includegraphics[scale = 0.25]{pics/12072103.png}
+\end{center}
+
+This $Q$-learning paradigm was able to outperform humans on many problems (including video games like ATARI). Though superhuman performance is great, it is largely sample inefficient since it requires so much training data!
+
+\subsection{Sample Inefficiency}
+What are the problems with $Q$-learning? One of them is the over-estimation in $Q$-values. One fix is \vocab{Double Q-Learning} (which we skip over in lecture). 
+
+\subsection{Dealing With Continuous Actions}
+What do we do if we have continuous actions? We can use the same formalism for continuous action in contextual bandits including the actions for the $Q$-network:
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/12072104.png}
+\end{center}
+This optimization framework is called \vocab{Deep Deterministic Policy Gradients (DDPG)}. This process is, however, extremely slow. 
+\begin{center}
+    \includegraphics[scale = 0.2]{pics/12072105.png}
+\end{center}
+
+\subsection{Policy Gradients}
+We now switch to the other main direction of research in reinforcement learning that focuses on directly optimizing the policy gradients. In finding the gradients for policy optimization, recall we had to find 
+$$\max_{\theta}\ee_\tau[R(\tau)]$$
+Doing gradient descent, this requires finding $$\nabla_\theta\ee_\tau[R(\tau)]=\nabla_\theta\int p_\theta(\tau)R(\tau)d\tau=\int \nabla_\theta(p_\theta(\tau))R(\tau)d\tau=\int p_\theta(\tau)\frac{\nabla_\theta(p_\theta(\tau))}{p_\theta(\tau)}R(\tau)d\tau$$
+$$=\int p_\theta(\tau)\nabla_\theta(\log p_\theta(\tau))R(\tau)d\tau=\ee_\tau[\nabla_\theta(\log p_\theta(\tau))R(\tau)]$$
+Intuitively, this means we increase the log probability of trajectories that result in high rewards. 
+
+\subsubsection{Credit Assignment}
+Now while trying to find the policy gradient $$\ee_\tau[\nabla_\theta(\log p_\theta(\tau))R(\tau)]$$ 
+we face a few issues. Now consider the toy example of a white ball trying to hit a yellow ball. 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/12072106.png}
+\end{center}
+Then, since $$\log p_\theta(s)=\log\prod p(s_t,a_t)=\sum \log p(s_t,a_t)$$ increasing the probability of each of the trajectories increases the probability of the total trajectory. Consider however, the following trajectory:
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/12072107.png}
+\end{center}
+When we increase the log probability of the total trajectory, the log probability of the first trajectory also increases. This is a problem, since the first action actually produces a negative policy gradient. 
+
+We must thus assign "credits" to each of the actions to determine which of the actions were more/less critical. This problem is called the \vocab{credit assignment problem}. 
+
+What are some remedies for the credit assignment problem? One solution to the problem is that of \vocab{delayed reward}, where we assign higher credit to later actions. This, however, creates ambiguity in which action should be credited. 
+
+The main problem in credit assignment is that of high variances in gradient estimates. One way to remedy this is with a discount factor $\gamma<1$. 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/12072108.png}
+\end{center}
+This variance reduction with discount however, is biased. Now, expanding on policy gradients, we can show $$\ee_\tau[\nabla(\log p_\theta(\tau))R(\tau)]=\ee_\tau\left[\sum_{t=1}^{T}(\nabla_\theta \log\pi_\theta(a_t|s_{1:t},a_{1:t-1};\theta)R(\tau)\right]$$ which does \textit{not} depend on $p(s_t|s_{1:t-1},a_{1:t-1})$ at all. In the discrete case, this is $$\frac{1}{N}\sum_{i=1}^{N}\left(\sum_{t=1}^{T}(\nabla_\theta \log\pi_\theta(a_t|s_{1:t},a_{1:t-1};\theta)\left(\sum_{t=1}^{T}r(s^{i}_{t'},a^{i}_{t'}\right)\right)$$
+Here, the current actions don't effect the past rewards! This is the idea behind \vocab{causality}, which is another way to reduce variance.
+
+With these two changes, we iteratively update the policy gradients. This algorithm is called the \vocab{REINFORCE Algorithm}.
+
+If we add the discount, we get $$\frac{1}{N}\sum_{i=1}^{N}\left(\sum_{t=1}^{T}(\nabla_\theta \log\pi_\theta(a_t|s_{1:t},a_{1:t-1};\theta)\left(\sum_{t'=t}^{T}\gamma^{t'-t}r(s^{i}_{t'},a^{i}_{t'}\right)\right)$$
+Note the right side term is the \textit{bias} which can make the long term effects suboptimal. 
+
+\subsection{Are Policy Gradients "True" Gradients?}
+Recall policy gradients $R(\tau)$ require us to calculate $$g=\frac{R_{\theta+\Delta\theta}(\tau)-R_\theta(\tau)}{\Delta\theta}$$
+which requires us to reset the state (we can not however, actually do this).
+
+Thus, policy gradient is not a true gradient. REINFORCE and Policy Gradients are thus more akin to evolutionary search. 
+
+\subsection{Practical Applications of RL}
+
+Below we see two examples of finding solutions to the Cheetah problem: a DDPG and a PPO model: 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/12072109.png}
+\end{center}
+In practical RL, different random seeds and regularizations can create \textit{statistically significant differences}. This problem is significant and we must thus accurately tackle this issue (and report it in the case that we do use RL). Thus, use a stable codebase if one is available (rather than trying to make one from scratch!).
+\end{document}

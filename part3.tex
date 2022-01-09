@@ -1,0 +1,337 @@
+\documentclass[11pt]{scrartcl}
+\usepackage{brian}
+\title{\Large 6.867 Notes\\ 
+\large Taught by Tommi Jaakkola, Suvrit Sra, Pulkit Agrawal}
+\subtitle{}
+\author{\small Brian Lee}
+\date{\small Fall 2021}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[center]{caption}
+\usepackage{float}
+
+\begin{document}
+
+\setcounter{section}{16}
+\section{November 9th, 2021: GANs}
+
+\subsection{Analysis vs. Synthesis}
+In analysis, we want to generate some information/data from the training data or objects. For example, given an image of a duck we might want to extract "duck" or "animal" or "positive" or some other information. 
+
+In synthesis, we would do the converse: we would go from the embedding to the data, going from labels to the images. Given the word "duck" we would try to create a "duck". 
+
+Last lecture, we showed how we could go from a set of images to a probability distribution $p(z)$ with a VAE. Today, we focus on the decoder part, going from the prior distribution to the target distribution. 
+
+\subsection{Deep Generative Models are Distribution Transformers}
+Deep generative models are essentially distribution \textit{transformers}: taking a map from one probability distribution to another. 
+
+What can you do with generative modeling? 
+\begin{itemize}
+    \item Image synthesis
+    \item Structured Prediction
+    \item Domain Mapping
+    \item Representation Learning
+    \item Model-based Intelligence
+\end{itemize}
+
+\subsection{Image Synthesis}
+The idea behind image synthesis is motivated by the idea of procedural generation. Now, given a predefined distribution, we can take a generator $G$ that randomly samples from $p(z)$, getting individual parts that can be used to generate or synthesize a model. 
+
+Now, we can then analyze the synthesized image using a discriminator $D$ to determine whether or not the image is "real" or "fake". If $D$ was fooled, then the generator $G$ will be pretty close to a real image. More concretely, given $x_{fake}$ sampled through $G$, the discriminator will classify into either real or fake: $$D(x_{fake}) \mapsto 1 \quad \text{or} \quad D(x_{fake}) \mapsto 0$$
+
+How do we try to fool $D$? We try to minimize $G$ with respect to the loss $D$: that is, we train them jointly in a \vocab{minimax game}:
+$$\min_{\theta_g}\max_{\theta_d}\left[\ee_{x \sim p_{data}}\log{D_\theta_{d}(x)}+\ee_{z \sim p(z)}\log(1-D_{\theta_d}(G_{\theta_g}(z)))\right]$$
+What is the optimal discriminator? 
+\begin{prop}
+For $G$ fixed, the optimal discriminator $D$ is given by $$D^*_{G}(x)=\frac{p_{data}(x)}{p_{data}(x)+p_{g}(x)}$$
+\end{prop}
+Another question is whether or not the GAN objective indeed \textit{has} a unique minimizer. Indeed, we will show that it does: $p_{g}=p_{data}$.
+
+\subsection{Creating the Probability Distribution}
+What are the pros and cons of VAES vs. GANs?
+
+\textbf{VAEs}:
+\begin{itemize}
+    \item Pros: Cheap to Crete, Good Coverage
+    \item Cons: Blurry Images
+\end{itemize}
+
+\textbf{GANs}:
+\begin{itemize}
+    \item Pros: Clearer, more high quality
+    \item Cons: Harder to optimize/train
+\end{itemize}
+
+\subsection{Self-Attention GANs (SAGAN)}
+Now, Zhang in 2019, defined the \vocab{Self Attention GANs (SAGAN)} model. Why Self-attention? Generators that use self attention model long range dependencies, which enforce complicated constraints on the global image structure. 
+
+Now, SAGANs train discriminators using Hinge Loss:
+
+\subsection{BigGANs}
+Brock in 2018, defined a model for GANs called \vocab{BigGAN} that increased performance using bigger batch size, more parameters, orthogonal weight initialization, and the truncation trick: finally, we use orthogonality regularizzation $$R_\beta(W)=\beta\norm{W^{T}W-I}^2_{F}$$ Now, should $D$ be optimized more often than $G$? 
+
+\subsubsection{Challenges in BigGAN Training}
+Why do we do orthonormal weight initialization? A primary reason is because of how the singular values blow up. 
+
+Now, the way we solve this is through \vocab{spectral normalization}: $$W=W-\max(0,\sigma_0-\sigma_{clamp})v_0u_0^{T}$$ where $\sigma_0$ is the first singular value, $\sigma_{clamp}$ is the maximum desired $\sigma_0$ and $u_0,v_0$ are the left/right eigen vectors.. 
+
+How do we set $\sigma_{clamp}$ (either fixed or some ratio with the second singular value). Isn't calculating singular values slow? For that, there is a trick where we use the power iteration method: Given a random initial vector $b_0$, we can take $$b_{k+1}=\frac{Wb_{k}}{\norm{Wb_k}}$$ and then continue this process recursively. Eventually, the $b_k$s will converge into the direction of the largest eigenvector, which will give the largest eigenvalue and thus singular value. 
+
+Another way is through \vocab{Gradient Normalization} where we use as a regularizer $$R_1= \frac{\gamma}{2}\ee_{p+\mathcal{D}(x)}\left[\Nabla{D(x)}\right]^2_{F}$$
+
+Now, gradient normalization is very stable (especially with higher $\gamma$) but it worsens performance. 
+
+\subsection{Style GANs}
+
+
+Another GAN model is that of \vocab{Style GANs} where you add a \vocab{Style} at every layer: that is, we take the latent $\textbf{z} \in \mathcal{Z}$ and normalize it before transforming it into some $\textbf{w} \in \mathcal{W}$ before applying an affine transformation $A$ based on this $\textbf{w}$ to each of the layers. We can also add \vocab{Noise} at each layer that is based on the noise of the initial data. Why do this? The idea is that we can take the styles/content of each of the images and then \textit{mix and match} later on!
+\subsection{Challenges in GAN Training}
+What are some challenges in GAN training? There are many different problems in GANs:
+\begin{itemize}
+    \item How do we do the min-max optimization?
+    \item How far can we scale these models (how deep can these GANs be)? 
+    \item Mode Collapse Problem
+    \item Data Support Issues
+    \item How do we measure performance?
+\end{itemize}
+
+\subsubsection{Mode Collapse Problem}
+The first problem is that of \vocab{Mode-Collapse}: the generator gets "stuck" in a local minimum and instead of generating a wide variety or diverse set of models, only generates one small subset or class. This is because there is no specification of "diversity". One remedy is to increase batch size so that there is more "diversity" in initialization and optimization. 
+
+\subsubsection{Data Support Issues}
+Another issue is that the generated images look extremely different from the actual images. This is because the section of the distribution the image is sampled from is separate from that of the original training images (due to the shape of the distribution, etc.). Then, the gradients do not exist and the objective functions are ill-defined. The remedy is to use \vocab{Wasserstein GANs} using the Wasserstein loss function which fixes the vanishing gradients. 
+
+\subsubsection{Measuring GAN Performance}
+How do we measure performance? One way is to have humans look at images: there are many problems with scalability, however, in this case. We can thus instead use \vocab{Desiderata} for a metric.  
+
+Another, more consistent way is to try testing the generative models on pre-trained modesl (such as a CNN or a SVM classifier). This is because in theory, the network will have already extracted a host of "human-like" features that can then determine the quality of the generated images. 
+
+One objective evaluation method is to use the \vocab{Inception Score (IS)}. Created by google, it is defined $$\exp\left(\ee_{x}\left[\mathbb{K}\mathbb{L}(p(y|x) || p(y))\right]\right) = \exp\left(H(y)-\ee_{x}\left[H(y|x)\right]\right)$$
+Another way is through the more modern \vocab{FID score} (see \url{https://en.wikipedia.org/wiki/Fr\%C3\%A9chet_inception_distance} for more information). 
+
+\subsection{Combining Models}
+Recall Autoregressive Models that generate/predict the color of next pixels in a partial image (or missing elements in a matrix, etc). That is, we find $$P(p_i|p_1,\cdots,p_{i=1})$$ where $p_1,\cdots,p_{i-1}$ are the distributions of the previous pixels. Now, over all pixels, we are generating the complete distribution of the entire image. 
+
+Now, we can use these tricks to combine multiple different models.
+
+\newpage
+
+\section{November 16th, 2021: Generative Models}
+
+\subsection{Defining Objective Functions}
+
+Recall our goal: we are trying to generate models based on inputs before using a discriminator to verify the quality of the images. 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11162101.png}
+\end{center}
+
+We did this by minimaxing over the generator $G$ and the discriminator $D$. Thus,in $G$'s perspective, $D$ \textit{learned} and \textit{highly-structured}, ie it is a loss function. 
+
+One problem with this method is the \textit{correspondence problem}. The image might look \textit{real} but it might be blurry or \textit{not correlate} to the initial data. The solution is then to have loss functions that depend both on the \textit{inputs} and the newly generated model $G(x)$. Ie, instead of loss function
+$$\arg\min_{G}\max_{D} \ee_{x,y}\left[\log(D(G(x)))+\log(1-D(y))\right]$$
+we have that $D$ depends on both parameters:
+$$\arg\min_{G}\max_{D} \ee_{x,y}\left[\log(D(x,G(x)))+\log(1-D(x,y))\right]$$
+This is called \vocab{conditional GAN} and serves as a sort of remedy for our models. 
+
+The main takeaway: we now think of the loss/objective functions as being \textit{learned} rather than hand coded which improves accuracy.
+
+\subsection{Domain Mapping}
+
+Rather than trying to label data manually, the usage of GANS has allowed us to generate images which could then be used to train classifiers.
+
+\subsubsection{DatasetGAN}
+This leads us into our discussion of \vocab{DatasetGAN} (Zhang, et. al 2021) which is a form of semi-supervised learning that generates synthetic images based on labeled images which are then used for classification (or further dataset images to train models).
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11162102.png}
+\end{center}
+From the paper by Zhang, it has been shown that the model achieves performance similar to fully supervised learning models with minimal human support.
+
+\subsubsection{GANs to Improve Presiction Performance}
+
+\subsection{Flow Models}
+We have discussed two models so far to generate probability distributions and generate models. GANs however, suffer from training instability while VAEs suffer from approximation inference. Can we overcome these issues? 
+
+We remedy these issues with \vocab{flow models}, invertible transforms of distributions. Suppose from inputs $X$ we get the probability distribution $\hat{p}_X$. Then, we can think of the transform $x \mapsto \hat{p}_X(x)$ as a map $z=f(x)$. If we assume the map is bijective, for generation we can just take the inverse: $x=f^{-1}(z)$.
+
+Now, from calculus, we know that if $x$ has distribution $p(x)$ that we have (if $x \to z$ is bijective) that $$p(x)=p(z)\frac{dz}{dx}$$ in the one dimensional case and $$p(x)=p(z)|\det(J)|$$ in multiple dimensions. We can then determine the loss function: 
+$$\log{p_\theta(x)}=\log{p(z)}+\log|\det(J)|$$
+Now, computing $\det(J)$ is often computationally infeasible. Suppose $z=Ax+b$. Then, $\det(J)=\det(A)$. How do we find this determinant quickly? 
+
+Using a checkerboard pattern and coupling layers, we can then use to generate images that have \textit{exact} probability distributions although they end up being quite blurry with many hypotheses being suggested as to why this is true. 
+
+\subsection{Diffusion Models}
+Another way of generating models is by reversing an Isotropic Gaussian. The forward step is to continually add Gaussian noise to our images to go from an image to an Isotropic Gaussian as shown below:
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11162103.png}
+\end{center}
+Can we revert this process using a Neural Network? 
+
+The forward diffusion process can be done by first reparameterizing the $q(x_t|x_{t-1})$s (this is called the \vocab{reparameterization trick}). We have that $$q(x_t|x_{t-1})=\mathcal{N}(x_t;\sqrt{1-\beta_t}x_{t-1},\beta_tI)$$
+Now, let $\alpha_t=1-\beta_t$, we can rewrite $$q(x_t|x_{t-1})=\sqrt{\alpha_t}x_{t-1}+\sqrt{1-\alpha_t}z_{t-1}$$
+Now, how do we simulate the reverse process? The intuition is that if we know how to reverse the process, we can generate an image from arbitrary noise. Thus, since we know $q(x_t|x_{t-1})$ we just try to compute $q(x_{t-1}|x_{t})$. Now, there are almost an infinite number of potential causes but only a few transitions are plausible. 
+
+\newpage
+\section{November 18th, 2021: Domain Adaptation, Covariate Shift}
+
+\subsection{Motivation}
+There is a possibility that the source data does not exactly model the test data. 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11182101.png}
+\end{center}
+\begin{ex}
+For example, a classifier for effective antibiotics is learned from a small assay and applied across a much larger chemical space.  
+\end{ex}
+Thus, there is a \textit{shift} from where the model is trained and where the model is applied. How do we know that the model performs well on populations for which it was not trained on? Indeed, performance can be substantially affected by this type of "domain shift". 
+
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11182102.png}
+\end{center}
+Indeed, as shown above when there is a domain shift as shown above, there is a very low accuracy. As in the traditional supervised domain, however, if we also train on the target population, we will have a much higher accuracy. Today, we try to \textit{reduce} this gap.
+
+\subsection{Tasks and Assumptions}
+We recall the supervised learning paradigm: we have a training data set $S_n$ and a training dataset $T$ $$S_n \sim \{(x_i,y_i) \sim P(y|x)P(x)\} \quad T=\{(x_i,y_i) \sim P(y|x)P(x)\}$$
+
+The \textit{semi}-supervised learning tasks is defined with some training data $S_n$ ($n$ small) along with some \textit{unlabeled} data $U_m$ ($m$ large): $$S_n \sim \{(x_i,y_i) \sim P(y|x)P(x)\} \quad U_m=\{x_i \sim P(x)\} \quad T=\{(x_i,y_i) \sim P(y|x)P(x)\}$$
+In \vocab{multi-task learning} we have $m$ "related tasks" with $n$ labeled examples for each (here $m$ relatively small) 
+$$(x_i,y_i) \sim P(y|x)P(x) \quad (x_i,y_i) \sim P(y|x)P(x), \cdots$$
+We then have $m$ sets of labeled samples (for $m$ related supervised tasks):
+$$S^{t}=\{(x_i^t,y_i^t) \sim P_t(x,y); i \in [n_t]\} \quad t \in [m]$$
+In \vocab{Domain Adaptation}, we have a lopsided version of the above task: we have lots of labeled source data, with a few labeled target data: 
+$$S_n=\{(x_i,y_i) \sim P(y|x)P(x)\} \quad T_m=\{(x_i,y_i) \sim P(y|x)P(x)\}$$
+Today we talk mainly about \vocab{Unsupervised Domain Adaptation} also known as \vocab{Covariate Shift} where we have a lot of labeled source data with \textit{unlabeled} target data: 
+$$S_n=\{(x_i,y_i) \sim P(y|x)P(x)\} \quad T_m=\{x_i \sim P(x)\}$$
+Of course, if we have no information whatsoever about $T_m$ there is no way we could feasibly hope to do well on this task (how can we generalize with no information). We thus make an assumption about the distribution of $T_m$: that the distribution is equal to that of the training domain. 
+
+\subsubsection{Multi-Task Learning}
+In multi task learning, we assume that the source and target example labels come from the same fixed, unknown task dependent distribution $(x^t,y^t) \sim \pp_t(x,y)$. Now, for multi-task learning, we would have $m$ different 
+"prediction" functions $f_1,\cdots,f_m$ one for each task as shown below:
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/11182103.png}
+\end{center}
+Now, the shared representation assumes that we can rely on the same set of basis features (basis functions) for predictions, even if the tasks are otherwise quite different (e.g., one is regression, another classification, different label sets, etc.). We can then pool together the examples, the extract the relevant featues $\phi_w$ before proceeding with our multi-task classification. 
+
+\subsubsection{Domain Adaptation}
+In supervised domain adaptation, we have a few labeled target examples to fine tune our classification: 
+\begin{center}
+\includegraphics[scale = 0.4]{pics/11182104.png}
+\end{center}
+In our unsupervised task, we lack even these labels to learn or fine tune or labels: 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/11182105.png}
+\end{center}
+\subsection{Covariate Shift}
+In Covariate Shift, our main assumption is of the shared conditional: that is, the distribution of co-variates can change from source to target: $$P_S(x,y)=P(y|x)P_S(x), \quad P_T(x,y)=P(y|x)P_T(x)$$
+In this unsupervised domain adaptation problem, we have access to the source data $S_n=\{(x_i,y_i)\}$ where $(x_i,y_i) \sim \pp_S$ and the unlabeled target $T_m=\{x_i\}$ where $x_i \sim \pp_T$. 
+
+Now, for simplicity, assume $y \in \{0,1\}$ and $h(x) \in \{0,1\}$. We would like to minimize our expected loss with respect to the target examples, ie, $$R_T(h)=\ee_{(x,y) \sim \pp_T} L_{0,1}(h(x),y)=\ee_{(x,y) \sim \pp_T}|h(x)-y|$$ But since we only have access to the labeled source examples, we instead utilize a transformation using our covariate assumption:
+$$R_T(h)=\ee_{(x,y) \sim \pp_T}|h(x)-y|=\int_{x,y}P(y|x)P_T(x)|h(x)-y|dydx$$
+$$=\int_{x,y}P(y|x)\frac{P_T(x)}{P_S(x)}P_S(x)|h(x)-h(y)|dydx=\ee_{(x,y) \sim \pp_S}\frac{P_T(x)}{P_S(x)}|h(x)-h(y)|$$
+We can then minimize an empirical version of the above empirical version: 
+$$\hat{R}_T(h)=\frac{1}{n}\sum_{i=1}^{n}\frac{\hat{P}_T(x_i)}{\hat{P}_S(x_i)}|h(x_i)-y_i|$$
+We make two assumptions in this transformation however: for the term $\frac{P_T(x)}{P_S(x)}$ to be well defined, we must require that the denominator is not zero so $$ \text{support}(P_T(x))\subset \text{support}(P_S(x))$$
+Another is that estimating $\hat{P}_T(x)$ and $\hat{P}_S(x)$ is hard. We thus try to get at the ratio more directly. 
+
+\subsubsection{Unsupervised Domain Adaptation Theory}
+We first define a discrepancy measure between the source and target distributions with the help of classifiers $h \in \mathcal{H}$ $$R_T(h)=\ee_{(x,y) \sim \pp_T}|h(x)-y|$$
+$$R_T(h,h')=\ee_{x \sim \pp_{T}}|h(x)-h'(x)|$$
+$$d_{\mathcal{H}\Delta\mathcal{H}}(\pp_T,\pp_S) = \sup_{h,h' \in \mathcal{H}} |R_T(h,h')-R_S(h,h')|$$
+\begin{thm}
+For any $h \in \mathcal{H}$ we have
+$$R_T(h) \le R_S(H)+d_{\mathcal{H}\Delta\mathcal{H}}(\pp_T,\pp_S)+\min_{h' \in \mathcal{H}}\left[R_T(h')+R_S(h')\right]$$
+The result holds even if $\pp_T(y|x) \ne \pp_S(y|x)$, ie, it is not limited to covariate shift. 
+\end{thm}
+\begin{proof}
+We do not go through the general proof but rather only the realizable case, ie. $\exists{h^*} \in \mathcal{H}$ such that $R_T(h^*)=R_S(h^*)=0$. Then, 
+$$R_T(h)=R_S(h)+(R_T(h)-R_S(h))$$
+Now since $R_T(h)=R_T(h,h^*)$ and $R_S(h)=R_T(h,h^*)$, we have that this is 
+$$\le R_S(h)+\sup_{h,h'}|R_T(h,h')-R_S(h,h')|$$
+which gives us our desired result (for the realizable case).  
+\end{proof}
+
+\subsubsection{Domain Adversarial Training}
+Now, we would wish to find a representation $\phi_w(x)$ such that 
+\begin{enumerate}[label=(\arabic*)]
+    \item Source label classifier $f(\phi_w(x))$ is accurate
+    \item $\pp_{\phi,T}(z)=\pp_{T}(z=\phi_w(x)) \approx \pp_S(z=\phi_w(x))=\pp_{\phi,S}(z)$
+\end{enumerate}
+We can now cast the problem of finding $\phi_w$ as a regularization problem: 
+$$\ee_{(x,y) \sim \pp_S}L(f(\phi_w(x),y))+\lambda{d}(\pp_{\phi,S},\pp_{\phi,T})$$ where $d(\pp_{\phi,S},\pp_{\phi,T})$ is a divergence measure between two distributions, here over induced feature values. 
+
+The divergence measure can be often defined with a help of a domain classifier that highlights how the two distributions differ; the goal of the representation is then to minimize this difference.
+
+\newpage
+
+\section{November 23rd, 2021: Few Shot & Life-Long Learning}
+
+\subsection{Outline: Transferring Knowledge from other tasks}
+The idea behind \vocab{transfer learning} is to use the knowledge of how to solve $N$ tasks to solve the $(N+1)$th task faster, or solve a more complex $(N+1)$th task. That is, we re-use knowledge from past tasks (often presented IID), to transfer to new ones (ie. classify the same object in a different setting).
+
+This contrasts with \vocab{multi-task learning} which solves multiple tasks simuatenously with no concern for transfer (often IID). 
+
+\vocab{Few-shot learning} attempts to take this a step further and classify new object categories. 
+
+\subsection{Transfer Learning}
+
+Suppose we have some pretrained network which performs some kind of task (eg. image classification for ImageNet). Now, suppose we introduce new types of images (ie. apples and oranges not in the original dataset). One solution is to add images of apples and oranges \textit{to} the training set and optimize the new parameters to get a new classifier. 
+
+How might we expect to do this? We can \vocab{fine-tune} our model by doing SGD with the pretrained $\theta_{imagenet}$ and train on the new images with $N_{ft}$ examples with hopefully $N_{ft}<<N_{scratch}$. When does this assumption hold? It holds when we are looking mainly to "recombine" features rather than find new, independent features. 
+
+\subsubsection{Transfer by Fine-Tuning}
+In practice, we need $50-100$s of "labelled" (ie. $N_{ft})$ data points. Fine tuning with very few data points, won't be effective. 
+
+Now, how do we fine tune effectively. The common practices are to 
+\begin{enumerate}
+    \item Fine-tune with a small learning rate
+    \item Fine-tune only the last few layers
+\end{enumerate}
+This is because we expect the existing edges to be quite good already and we want to keep those weights intact (and thus we reduce the change with the learning rate in SGD and/or only affect the last few layers).
+
+What layers do we finetune? With less data, we could fine tune only the last few layers. With more data, we can finetune more and more (and eventually all if enough data) layers. 
+
+\subsection{Few-Shot Learning}
+\subsubsection{Image Classification}
+
+Suppose we have a classifier which has as training inputs apples and oranges $\{x_i\}_{i \in [n]}$ and labels $\{y_i\}_{i \in [n]}$. One way we could classify is with \vocab{nearest neighbors}. That is, we label new images with output class 
+$$k=\arg\min_{i}\norm{x_i-x}_2^2$$
+The raw images however, may not be the best for distinguishing so we can instead use the \textit{extracted} features in the embedding space:
+$$k=\arg\min_{i}\norm{z_i-z}_{2}^{2}$$
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/11232101.png}
+\end{center}
+What if however, the features we currently have might not be optimized for similarity-matching? How do we learn to match features? 
+
+\subsection{Siamese Networks}
+One solution is to use \vocab{Siamese Networks} to do metric learning: instead of a one v/s all classification, we can compare each 
+image with other images (two vector inputs) and label $1$ if it is in the same class and $0$ otherwise.
+
+\subsubsection{Matching Networks}
+We can extend this view, using multiple examples in a class to classify images rather than a single image. The idea is to do the same paradigm and to \textit{match} new images with different classes which have a \vocab{support set} from which we extract some features $g_\theta$. From our test images, we extract features $f_\theta$. We then use a "softmax-like" function to get a logit of the image belonging to the class
+$$p(y|\hat{x},S)=\sum_{i}^{k}\frac{\exp(c(g_\theta(x_i),f(\hat{x}))}{\sum_{i=1}^{k}\exp(c(g_\theta(x_i),f(\hat{x})))}y_i$$
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/11232102.png}
+\end{center}
+This is the paradigm behind \vocab{Few-Shot learning} where we match images with various different examples in a Support Set. Siamese Networks are an example of $1$-shot learning, while Matching Networks are examples of $N$-shot learning ($N>1$). 
+
+Another perspective is suppose we have a pre-trained $\theta$. They may require some retraining to get to new parameters $\theta_1$ or $\theta_2$ for some classification tasks. We may require a lot of fine tuning $\Delta\theta_1+\Delta\theta_2$. How might we make fine-tuning better? What if alter $\theta$ so it is closer to $\theta_1$ and $\theta_2$?
+
+Then, we can try to minimize $$\min_{\theta}\sum_{i}\mathcal{L}_{\tau_i}f(\theta_i)$$
+
+\subsection{Larger Models with Zero-Shot Learning}
+
+Another paradigm for large scale classification is \vocab{zero-shot learning}. Rather than comparing images with imaegs, we can create a dataset classifier from label text with some sort of text encoder and compare it with an encoded image to make predictions based on \textit{labels} rather than based on comparison with images themselves. 
+
+Thus, what we can do is instead \textit{pre-train} images contrastively, to get that certain labels match with certain types of images (eg. \textit{dog} is furry, cute, has ears, etc.). Then, we can compare pairwise whether or not an image has certain features (\textit{without} ever directly comparing the images) to generate a prediction score to classify images. Since we never directly compare the images, this classification process is called \textit{zero}-shot learning.
+
+Of course, since we do pairwise comparison, the model is very slow. Why do we use it then? The idea is that the model is increasingly robust:
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/11232103.png}
+\end{center}
+
+\subsubsection{Progressive Networks}
+Now, what are some problems with sequential/continual task learning? You might \textit{overfit} for certain tasks! This is called \vocab{catastrophic forgetting}. How can we deal with this? The idea is to just remember the weights for each task! 
+
+This is the idea behind \vocab{Progressive Networks} in which we gradually store the weights to overcome catastrophic forgetting. 
+
+\newpage
+
+\end{document}

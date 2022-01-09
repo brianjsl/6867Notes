@@ -1,0 +1,1062 @@
+\documentclass[11pt]{scrartcl}
+\usepackage{brian}
+\title{\Large 6.867 Notes\\ 
+\large Taught by Tommi Jaakkola, Suvrit Sra, Pulkit Agrawal}
+\subtitle{}
+\author{\small Brian Lee}
+\date{\small Fall 2021}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[center]{caption}
+\usepackage{float}
+
+\begin{document}
+
+\section{September 9th, 2021: Introduction}
+\textbf{Teaching Team:}
+\begin{itemize}
+    \item \underline{Lecturers}: Pulkit Agrawal, Suvrit Sra, Tommi Jaakkola
+    \item \underline{TAs}: Mike, Shangyuan, Alex, Melody, Josh, Yilun, Aviv
+\end{itemize}
+
+\textbf{Grading Structure:}
+\begin{itemize}
+    \item 3 pen and paper HWs (25\%)
+    \item Final Project (40 \%) - 3 person groups
+    \item Exams (2) - Midterm (15\%) and Final (20\%)
+\end{itemize}
+
+\subsection{What is Machine Learning?}
+Machine Learning is a field that shares various similarities with other fields including Statistics and Artificial Intelligence. The main difference between ML and statistics however is the focus on prediction and optimization in ML in contrast to the focus on validation in statistics. The difference with Artificial Intelligence on the other hand, is increasingly small, although there are a few topics in AI that will not be covered in this course. 
+
+In this course we will tackle three main types of problems:
+\begin{itemize}
+    \item \vocab{Supervised Learning}: Mapping Problems with explicit feedback and labels
+    \item \vocab{Unsupervised Learning}: Generating observations from data with a focus on structure and organization
+    \item \vocab{Reinforcement Learning}: Delayed feedback and the taking of actions from said feedback
+\end{itemize}
+The most interesting problems in ML nowadays involve all three fields. 
+\begin{ex}
+You might for example make a supervised learning model for radiology images to look for tumors. 
+\begin{center}
+\includegraphics[scale=0.7]{pics/09092.jpg}
+\end{center}
+\end{ex}
+
+What assumptions do we need to make these learning models work? 
+
+\textbf{Formalization:} The test and training set must be of the same kind. 
+
+For example, suppose you have a training set $$\{(x_i,y_i)\}_{i \in \{1,\cdots,n\}} \sim P_{unknown}$$ where the probability distribution of the set is iid (identically and indepndently distributed). The test data mihgt have $$(x_i,y_i) \sim P_{real}$$ but $P_{unknown}$ might not always generalize well to approximate $P_{real}$. There is a discrepancy, namely one of covariate shift. So there is a failure to generalize the domain. 
+
+\subsection{Supervised Learning}
+The problem of supervised learning largely revolves around the study of \vocab{input-output mappings}: $$f:X \to Y$$ where for inputs $x$ we migt have for example, real numbers, vectors, sentences, documents, or molecules. For outputs, we might have real numbers, elements in $\{-1,1\}$ (as in  classification problems), sequences $\{a_i\}$, real vectors, documents, and or molecules. 
+
+Typically, we will represent complex objects (like molecules) by vectors formed as shown: 
+$$x \xrightarrow[\text{representation}]{\phi} \phi(x) \in \rr^d \xrightarrow[\text{prediction}]{g} y$$
+so we have $f(x)=g(\phi(x))$ where $\phi: \rr^d \to Y$. The first function $\phi$ is a \vocab{classification} map. There are quite a few ways to classify objects:
+\begin{itemize}
+    \item For sentences, we might use a Convolutional Neural Network (CNN)
+    \item For documents, we might use a Recurrent Neural Network (RNN) or a Transformer (T)
+    \item For graphs, we might use a Graph Neural Network (GNN)
+\end{itemize}
+
+One very simple way to decompose objects is just to do feature representation. For example, suppose you have a document $X$. Then we might take $$\phi(X)= \begin{bmatrix} 1 \\ 0 \\ \vdots \\ 1 \end{bmatrix} \text{ using ML deep statistics}$$ where the matrix on the right is a bag-of-words model with each feature indicating words.
+
+There is however a problem with this feature representation: these feature representations \textit{lose} important information relevant to prediction making. So, suppose $F$ is the set of hypotheses and $f \in F$. How do we control this set after representing our objects with vectors? That is, how do we go from $F$ to get a suitable mapping? It is precisely from here that we get an optimization problem. 
+
+
+The solution to our problem involves the usage of \vocab{Loss Functions}. For example, 
+$$\text{Loss}(y,f(x))= ((y-f(x))^2/2)[[yf(x)]] $$
+where $[[X]]=\begin{cases} 1 & X=\text{True} \\ 0 & X = \text{False} \end{cases}$
+\newpage
+\begin{defn}
+We call the quantity $$Lp(f)=\ee_{(x,y) \sim P}\{\text{Loss}(y,f(x))\}$$
+the \vocab{expected loss}. 
+\end{defn}
+Thus finding a function $f$ that minimizes $Lp(f)$ or more realistically 
+$$\min_{f}\frac{1}{n}\sum_{i=1}^{n} \text{Loss}(y_i,f(x_i)) \approx Lp(f)$$
+the "\vocab{empirical loss}" is the way we find a mapping for the problem. There are a few problems with this approach however, in that the empirical loss is usually less than the expected loss which leads to problems in generalization. Thus, the more sets of hypotheses the better linear regression generalizes. 
+
+\textbf{Ways to Generalize Data Better:}
+\begin{itemize}
+    \item Get more training data
+    \item Regularization - used as a way of controlling sets of mappings
+\end{itemize}
+After regularizing, we would minimize a term like $$\min_{f \in F} \left[\frac{1}{n}\sum_{i=1}^{n}\text{Loss}(y_i,f(x_i))+\reflectbox{F}_nR(f)\right]$$
+where $\reflectbox{F}_n$ is a hyperparameter and $R(f)$ is a regularization parameter. 
+
+\subsection{Unsupervised Learning}
+
+The second half of the course will focus primarily on \vocab{unsupervised learning} - how to generate models over data $P(x,\theta)$, $\theta \in \Theta$. There are a few ways to do this:
+\begin{enumerate}[label=(\alph*)]
+    \item Decomposition  \\
+    For example you might do so for samples of people by hair color/tyle, skin tone, facial expression, etc. 
+    \item Autoregressive Models: $$P(\text{this lecture is ?})=P(\text{this})P(\text{lecture}|\text{this})=P(?|\text{This, lecture})$$
+    \item Deep-Generative Models \\
+    For example, you might take $z \in \rr^d$ and run it through a deep network to get $x=y(z,\theta)$. This is problematic however because this implies the existence of $P(x,\theta)$ which we can not ever define. Since $$P(x,\theta)=\int \delta(x,y(x,\theta))p(z)dz$$ we can at most approximate these complex distributions with discrete distributions $Q(z|x, \phi) \equiv P(z| x, \phi)$. There are also other ways to estimate complex distributions like GAN.
+    
+    \subsection{Reinforcement Learning}
+    At the very end of the course, we will tackle some problems that we face in modern ML problems:
+    
+    \textbf{Bandit Problem}: Actions have rewards but fixed amounts of resources, how to maximize reward? For example we might have actions 
+    $$a_1, a_2, a_3$$ with corresponding rewards $$f(a_i)=r_1, r_2, r_3, \cdots$$ The goal is then to find the $a$ such that $\ee\{r(a)\}$ is maximized. 
+    
+    \textbf{Contextual Bandit}: Similar to above, but now you have context. See your context, take an action, get a reward. You might for example have actions $$a_1,a_2, \cdots$$ with contexts $$x_1,x_2,\cdots$$ and rewards $$r_1,r_2,\cdots$$ We must find the $(a,x)$ pair such that $\ee(r(a,x))$ is maximized. The math is thus slightly harder than the first example.
+    
+    \textbf{Reinforcement Learning}: Here we have delayed feedback - actions have consequences as they \textit{affect} the next rewards. How do we maximize reward? 
+    \begin{center}
+        \includegraphics[scale=0.7]{pics/090321.jpg}
+    \end{center}
+\end{enumerate}
+
+\newpage
+
+\section{September 14th, 2021: Supervised Learning - Formulation, Optimization}
+
+\subsection{Foundations of ML}
+
+\textbf{Recap of Foundations:} Recall from last lecture, the "big overview" of ML:
+\begin{center}
+    \includegraphics[scale=0.4]{pics/091321.png}
+\end{center}
+
+\textbf{The Data Analysis Pipeline}: Though there are many approaches to ML, we will be focusing mainly on abstract mathematical models.
+
+\subsubsection{Classification}
+A few definitions are in order:
+\begin{defn}
+$~$
+\begin{enumerate}[label=(\alph*)]
+    \item A \vocab{Data Domain} is an arbitrary set $\mathcal{X}$ (typically $\mathcal{X}=\rr^d$ assuming that the members of $\mathcal{X}$ are represented in terms of its features under some feature map $\phi$). 
+    \item A \vocab{Label Domains} is a discrete set $\mathcal{Y}$ (eg. $\{0,1\}$, $\{-1,1\}$).
+    \item \vocab{Training Data} is the set $S=\{(x_i,y_i)\}_{\{i \in [1,n]\}}$ whose pairs are drawn from $\mathcal{X} \times \mathcal{Y}$
+    \item \vocab{Classifier}: A prediction rule $h: \mathcal{X} \to \mathcal{Y}$ (we'll write $h_S$ to emphasize dependance in training data) - also called \vocab{hypotheses} or \vocab{prediction rules}
+\end{enumerate}
+\end{defn}
+
+\textbf{Regression vs. Classification:} Classification has $\mathcal{Y}$ consist of discrete variables while in regression $\mathcal{Y}$ is continuous. Moreover, classification problems usually tend to have the outputs be categorical in nature compared to the numerical nature of regression problems.
+
+\subsubsection{Main Assumptions}
+
+We will be assuming that there is a joint distribution $\pp$ on $\mathcal{X} \times \mathcal{Y}$. We will also be assuming that $\pp$ is fixed and that the random variables $X \in \mathcal{X}$ and $Y \in \mathcal{Y}$ are collected iid. These assumptions are of course, easy to violate but we will stick with them for now. 
+
+\subsubsection{Measuring Success of A Classifier}
+How do we measure the success of a classifier? The answer is error functions:
+\begin{defn}
+The \vocab{error} of a classifier, or \vocab{risk}, aka \vocab{generalization error} $$L(h) \equiv L_\pp(h) := \pp(h(X) \ne Y)$$
+\end{defn}
+Success of a classifier is measured by how small the risk is, so the main goal is to minimize it.Intuitively, we want to give the most likely class given the data makes sense. 
+
+\subsubsection{Bayes Classifier}
+For the idealized probability distribution (as we have been assuming thus far), there is a theoretical limit for a classifier that minimizes the risk. \begin{defn}
+The \vocab{Class Conditional Classifier} is given by $$\eta(x) := \pp(Y=1| X = x) = \ee[Y|X=x]$$
+\end{defn}
+The theoretical optimal limit for classifiers in the idealized probability distribution is given by the following:
+\begin{defn}
+The \vocab{Bayes Classifier} is given by $$h^*(x)=\begin{cases} 1 & \text{ if } \eta(x)>\frac{1}{2} \\ 0 & \text{otherwise}\end{cases}$$
+\end{defn}
+
+The below theorem shows the optimality of the Bayes Classifier.
+\begin{thm}[BC Optimality]
+For any classifier $h: \rr^d \to \{0,1\}$ we have $h^*$ is optimal, i.e. $$P(h^*(X) \ne Y) \le P(h(X) \ne Y)$$ for any classifier $h$.
+\end{thm}
+\begin{proof}
+See \textit{Exercises 1}.
+\end{proof}
+The optimal Bayes Classifier leads to a corresponding Bayes Error defined in the obvious way. 
+\begin{defn}
+The corresponding \vocab{Bayes Error} is defined $$L^*=\inf_{h: \rr^d \to \{0,1\}}\pp(h(X) \ne Y)$$
+\end{defn}
+This is, of course, an \textit{idealized} quantity because we don't know the actual distribution $\pp$. 
+\subsubsection{A More Practical Approach}
+Rather than using the Bayes Classifier (which we can't actually find most of the time), we try an approach that makes use of the training data: the \vocab{Nearest Neighborhood Classification}. How does Nearest Neighborhood work? 
+
+\textbf{Training}: None (just memorize the data!)
+
+\textbf{Testing}: For each data point $"x"$ find the '$k$' nearest data points in the training data. \textit{Predict} the label $'y'$ for $'x'$ by taking a weighted majority label.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.4]{pics/0914212.png}
+    \caption{k-NN on an Orange/Blue Training Set}
+\end{figure}
+
+\subsubsection{1NN vs. Bayes Classifier}
+Asymptotically, it can be shown that the error of the 1-NN classifier is $$L_{NN}=\ee[2\eta(x)(1-\eta(x))]$$
+More importantly though, it can be shown that $L_{NN}$ has pretty good error in comparison to the Bayes Error:
+\begin{thm}
+We have $$L^{*} \le L_{NN} \le 2L^*$$ where $L_{NN}$ is the $1$-NN risk and $L^*$ is the Bayes Error.
+\end{thm}
+\begin{proof}
+Exercise.
+\end{proof}
+Actually, we can go even further by increasing $k$. In fact, we can show that $k$-NN $\sim$ $L^*$ in the asymptotic limit. 
+
+\textbf{Conclusion:} NN is pretty darn good (although increasing $k$ makes it slightly slower).
+
+\subsubsection{What We Would Like In Classification}
+In the real world, however, there are a few things we would ideally want before classification:
+\begin{itemize}
+\item Ideally, we want non-asymptotic results to better understand $N$ to attain the real error rate. 
+\item Any prior knowledge about $(X,Y)$
+\item Noise, robustness, adversarial learning, and other concerns. 
+\end{itemize}
+We can, however, accommodate for these concerns by another approach: Empirical Risk Minimization (ERM). 
+
+\subsection{Empirical Risk Minimization (ERM)}
+\textit{Reference}: Refer to [SSS] for more detail. 
+
+\subsubsection{What Is ERM?}
+Unfortunately, in the real world, we don't know the true error (Bayes Error) because we don't know the probability distribution. We \textit{do} however, known the \textit{training error} which we define as follows:
+\begin{defn}
+The \vocab{training error} for a training set $S$ is $$L_{S}(h) = \frac{1}{N}\#\{i \in [N] | h(x_i) \ne y_i\}$$ It is also referred to as the \vocab{empirical risk}.
+\end{defn}
+
+The idea behind \vocab{Empirical Risk Minimization}, or ERM, is to minimize $L_{S}(h)$. The \vocab{ERM Principal} however, has one pitfall: overfitting (although recently there has been more discussion as to whether or not some overfitting can be benign; in the common terminology, interpolation has benign connotations compared to overfitting).
+
+\subsubsection{Negative Examples of ERM}
+We display the problem of overfitting with an example: the \vocab{Memorization} algorithm. 
+
+Consider a set $S=\{(x_i,y_i)| 1 \le i \le N\}$ of points distributed along the square as shown. The areas consisting of $y=0$ and $y=1$ are equal. 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[scale=0.5]{pics/0914213.png}
+    \caption{$x$ distributed uniformly in the square}
+\end{figure}
+
+Now define $$h(x)=\begin{cases} y_i & \text{if } x = x_i \\ 0 & \text{otherwise}\end{cases}$$
+What is the training error? Well, by definition, we have that the error for each data point is $0$. So the training error is $0$. But how does the classifer classify other points? 
+
+Since it always classifies non-training set points as $0$ we have that the probability it classifies a randomp point correctly is $1/2$. That is, the classifier is \textit{just as bad as a random guess}. This is a classic example of overfitting. 
+
+\begin{remark}
+As before however, we remark that overfitting is not \textit{fully} a bad thing. What is more important is the \textit{type} of overfitting. See below for more details.
+\end{remark}
+
+\subsubsection{How To Tackle Overfitting}
+Rather than giving up entirely, we can search for settings in which ERM \textit{does} still work. 
+
+The solution is \vocab{Inductive Bias} - Apply ERM overa restricted search space, ie, choose a hypothesis class $\mathcal{H}$ in advance \textit{before} seeing any training data (eg. linear model, Neural Network, Random Forests, etc.)
+\begin{ex}
+For ERM, we use $\text{ERM}_{\mathcal{H}}$ to learn $h$:
+$$\text{ERM}_{\mathcal{H}}(S) \in \arg\min_{h \in \mathcal{H}}L_S(h)$$
+\end{ex}
+Ideally choose $\mathcal{H}$ with prior knowledeg. Leaving the hypothesis class too simple, however, may leave to overfitting. Conversely, if the hypothesis class is not strong enough we can still underfit. 
+
+\subsubsection{ERM As An Optimization Problem}
+We now take a more general notion of risk. For example, consider the following:
+\begin{itemize}
+    \item \vocab{Risk Function}: The expected loss of $h$ wrt data distribution over the whole $\mathcal{X} \times \mathcal{Y}$: $$L(h) := \ee[l(h,X,Y)]$$
+    \item \vocab{Empirical Rule} $$L_{S}(h) := \frac{1}{N}\sum_{i=1}^{N}l(h,x_i,y_i)$$
+    \item \vocab{0/1 Loss}: $$l_{0/1}(h(x,y))=\begin{cases} 1 & h(x) \ne y \\ 0 & h(x)=y\end{cases}$$
+\end{itemize}
+
+\begin{exc}
+Find settings where the loss is not NP-hard.
+\end{exc}
+
+We can bypass this with loss functions (surrogates for $l_{0,1}$ loss). 
+\subsubsection{ERM: From Optimization to Statistics}
+Question: when does ERM work? If we minimize $\mathcal{L}_S(h)$ what bearing does it have on $\mathcal{L}_D(h)$? 
+
+Informally, if $\mathcal{L}_{S}(h_S) \approx \mathcal{L}_{D}(h)$ for the training set, then ERM returns a good hypothesis: 
+$$\mathcal{L}_{\pp}(h_S) \le \min_{h \in \mathcal{H}}\mathcal{L}_{\pp}(h)+\epsilon$$
+
+\subsubsection{Error Decomposition}
+Recall in our formulation of ERM, to control overfitting, we introduced inductive bias (by restricting ourselves to certain hypothesis classes). Let us look at the fundamental error decomposition of ML:
+$$\mathcal{L}_{\pp}(h_S) =\epsilon_{apprx}+\epsilon_{est}$$
+Thus, the probability of error on random (unseen) data decomposes into 
+\begin{itemize}
+    \item $\epsilon_{apprx}=\min_{h \in \mathcal{H}}L_{\mathcal{D}}(h)$ (also known as the \vocab{approximation error})
+    \item $\epsilon_{est}=\mathcal{L}_{\pp}(h_S)-\epsilon_{apprx}$ (also known as the \vocab{estimation error})
+\end{itemize}
+
+Here, the approximation error is the minimum achievable risk by any hypothesis in our hypothesis class. Really, what it measures is how much risk is due to the inductive bias (observe it does not depend on $N$ or $S$).
+
+The estimation error on the other hand is the difference between the approximate error and the error achieved by the ERM prediction. It arises because the empirical loss is merely a proxy for the true loss. 
+
+Here, we get an idea of the \vocab{bias-complexity trade off}: as we increase the inductive bias by getting a richer class, we may lead to overfitting which gives a bigger estimation error since the empirical risk will approximate the true risk worse. 
+
+Of course, we can control the "complexity" by adding regularization. However, adding a regularizaiton parameter is not the only way to regularize!
+
+\subsubsection{ERM Bias-Complexity Tradeoff: A Modern Approach}
+
+Recent developments have shown however, that overfitting is not necesarily a bad thing: at \textit{some point}, unlike the classic view, overfitting leads to \textit{decreased empirical risk}. See the figure below:
+\begin{center}
+    \includegraphics[scale = 0.1]{pics/09142104.png}
+\end{center}
+
+\newpage
+\section{September 16th, 2021: Linear and Nonlinear Predictors}
+
+\subsection{Linear Predictors}
+Recall the ERM problem: the actual goal is to minimize the Bayes Error $$L(h) := \ee[l(h,X,Y)]$$ while in reality we mainly try to minimize the empirical risk $$L_s(h):=\frac{1}{N}\sum_{i=1}^{N}l(h,x_i,y_i) \approx L(h)$$ 
+
+\subsubsection{ERM: The Optimization Problem}
+Let $\theta$ be our set of parameters. We are trying to minimize $$L_s(h) = f(\theta) = \frac{1}{N}\sum_{i=1}^{N}f_i(\theta)$$ where each $f_i(\theta):=l(h,x_i,y_i)$. The goal is to optimize $f(\theta)$ which in ML, we mainly do with SGD (Stochastic Gradient Descent) and its variants. 
+
+The individual losses $f$ of course could depend widely based on our choice of model: logistic regression, SVMs, Deep Neural Networks, Maximum Likelihood, etc. are all special cases of the problem.
+
+\begin{ex}[ERM as an Optimization Problem]
+In least squares, we have $$(x_i^{T}\theta-y_i)^2 \sim f_i(\theta)$$
+Training as a CNN, we would have $$l(y_i,\text{net}(\theta,x_i)) \sim f_i(\theta)$$
+\end{ex}
+
+\subsubsection{Linear Models}
+A \textit{concrete} choice for our "inductive bias" is the set of linear classifiers. 
+\begin{defn}
+A \vocab{hyperplane} is a function of the form $w^{T}x+w_0$ where $w$ is said to be the \vocab{weight vector/parameter} and $w_0$ the \vocab{offset/bias}.
+\end{defn}
+With slight abuse of notation, we use the signs of hyperplanes to form our hypothesis class:
+$$\mathcal{H}=\{h: h(x) = \text{sign}\left(w^{T}x+w_0\right) | w \in\rr^d, w_0 \in \rr\}$$
+Halfspaces, hyperplanes, logistic regression classifiers, etc. composed with a scalar function \textit{also} form "linear" hypothesis classes. 
+
+Note that for a binary classification task, \textit{correct} classification implies that $$y_i(w^{T}x+w_0) \ge 0$$
+
+\subsubsection{Three Important Loss Functions}
+There are many choices of possible loss functions so we introduce three that are commonly used. As before, we have \vocab{squared loss}:
+$$l(w^{T}x_i+w_0)=(w^{T}x_i+w_0-y)^2$$
+that we use in linear regression (halfspace prediction). 
+
+Another prominent example of a loss function is that of \vocab{hinge loss} that we use in \vocab{Support Vector Machines(SVM)}: $$l_h(z) := max(0,1-z)$$ 
+Finally, we also have \vocab{logistic loss} that we use in (surprise) \vocab{logistic regression}:
+$$l_{log}(z) := \log(1+e^{-z})$$
+
+\subsection{Logistic Regression}
+\subsubsection{A Quick Derivation}
+Our aim is to find the Bayes Classifier for the Linear Hypothesis class $\mathcal{H}$. Of course, this is not feasible since we have no access to the underlying probability distribution $\pp(X,Y)$ so we instead use an empirical estimate instead. 
+
+First, define $$\hat{\eta}(x)= \ee[Y|X=x]$$ to be the conditional distribution of $Y$ given $x$. We define a classifier $$h(x) = [[\hat{\eta}(x) \ge \frac{1}{2}]]$$
+Now, $\hat{\eta}(x)=w^{T}x+w_0$ does not work directly since it is not in the range $[0,1]$. It is also hard to optimize $h$ since there is a "jump" as shown:
+\begin{center}
+    \includegraphics[scale =0.3]{pics/091621.png}
+\end{center}
+We thus use a \textit{smooth} approximation by applying a diffeomorphism to $(0,1)$ in the sigmoid function. 
+\begin{defn}
+The \vocab{sigmoid function} $\sigma$ is defined $$\sigma(z)=\frac{1}{1+e^{-z}}=\frac{e^z}{1+e^z}$$ 
+\end{defn}
+Then, $$\hat{\eta}(x)=f(x)=\sigma(w_1^{T}x+w_0)=\frac{e^{w_1x+w_0}}{1+e^{w_1x+w_0}}$$
+
+\subsubsection{ERM Formulation of Logistic Regression}
+Given iid data $\{(x_1,y_1), \cdots, (x_N,y_n)\}$ we define the \vocab{likelihood} of attaining each of these values as follows:
+$$l(w) := \prod_{i:y_i=1}p(x_i)\prod_{j:y_j=0}(1-p(x_j))$$
+Maximizing this quantity is equivalent to minimize the negative log. This quantity thus serves as the loss function for logistic regression:
+\begin{defn}
+The \vocab{Negative Log-Likelihood(NLL)} or \vocab{Cross-Entropy} is $$\mathcal{L}(w) = -\sum_{i=1}^{N} y_i\log(\sigma(w^{T}x_i))+(1-y_i)\log(1-\sigma(w^{T}x_i))$$
+\end{defn}
+\subsubsection{Multi-Class LR}
+So far, we have only stuck with binary classification labels. In general, you can try to classify points with $C \ge 2$ labels. For this, there are many different potential algorithms including a generalization of logistic regression called \vocab{Softmax Regression} which models as the conditional probability $$\pp(Y=i;x,w)=\frac{\exp(w_i^{T}x)}{\sum_{j=1}^{k}\exp(w_j^{T}x)}$$
+The corresponding loss function is (see Exercises 1) $$\mathcal{L}(w)=-\sum_{l=1}^{N}\sum_{i=1}^{K}[[y_i=k]]\log\left(\frac{\exp(w_i^{T}x)}{\sum_{j=1}^{k}\exp(w_j^{T}x)}\right)$$
+
+\subsubsection{Support Vector Machines(SVM)}
+Another famous linear linear classifier model is that of (linear) \vocab{Support Vector Machines (SVM)}. The main idea is to get a model that maximizes the margin seperator between the plane and the points. Here, we try to find weights $w,w_0$ such that  $$\min_{w,w_0}\mathcal{L}_S(w,w_0)=\frac{1}{N}\sum_{i=1}^{n}l_{h}(y_i(w^{T}x+w_0))+\frac{1}{2}\norm{w}^2$$
+where $l_h(z)=\max(0,1-z)$ is the \vocab{hinge loss}. Intuitively, this makes it so that the loss "ignores" points that are classifier correctly and are far from the seperator. There is also an implicit regularization happening (in the $\norm{w}^2$ term). 
+
+\subsubsection{THe Notion of Margin, Canonical Normalization}
+Suppose the training data is seperabel. Then $\exists(w,w_0)$ such that $w^{T}x+w_0>0$ for positive points and $w^{T}x+w_0<0$ for negative points. Clearly $(\delta{w},\delta{w_0})$ for any scalar $\delta>0$ also works. So let us introduce the \vocab{canonical normalization} $$\min_{1 \le i \le N} |w^{T}x+w_0|=1$$ The wider the margin, the more robust the seperating plane. Points that are close tot he deicison boundary will show up more. SVM reduces the set of training data by looking just at values near the supporting plane (this is why we use the hinge loss). 
+
+\textit{Exercise}: Show point closest to the seperating hyperplane has distance $1/\norm{w}$.
+
+\subsubsection{Why Prefer Large Margins?}
+\textit{Intuition:} Suppose you train and test points from some distribution. Except for some outliers, most of the test data may be close to the training data. 
+
+Suppose test data is  generated by adding bounded noise to training data: $$(x,y) \to (x+\delta{x},y), \quad \norm{\delta{x}} \le r$$ 
+If we find a seperating hyperplane with margin $\gamma>r$ we will classify all test data points (ie. robust to any. kind of noise that is bounded by $r$). 
+$$\text{Generalization Error} \le \text{Margin Error} + O(1/\text{margin})$$
+Thus, larger margin $\to$ better solution. This is the instance of bias-complexity tradeoff.
+
+\subsubsection{Hard-Margin SVM}
+We want a large margin. Assume the data is seperable as a naive formulation. Then we attemp to find $$\begin{cases} \max_{w,w_0}\frac{1}{\norm{w}} \\
+\min_{1 \le i \le N} y_i(w^{T}x_i+w_0)=1
+\end{cases}$$
+Equivalently, we find $$\begin{cases} \max_{w,w_0} \frac{1}{\norm{w}} \\ y_i(w_{i}^Tx+w_0) \ge 1 \quad \forall{i} \in [N] \end{cases}$$
+Equivalently, $$\min_{w,w_0}\frac{1}{2}\norm{w}^2=\max_{w,w_0}\frac{1}{\norm{w}}$$
+which is the \vocab{Hard-Margin SVM}.
+
+\subsubsection{Soft-Margin SVM}
+Now, of course, the data is not neccesarily seperable so we can loosen the hard constraint by adding some slack: $$\min_{w,w_0,\xi}\frac{1}{2}\norm{w}^2+C\sum_{i}\xi_i$$
+$$y_i(w^{T}x+w_0) \ge 1-\xi_i, \quad \forall{i} \in [N]$$
+This is equivalent to the hinge-loss formulation of Soft-Margin SVM:
+$$\min_{w,w_0}\mathcal{L}_S(w,w_0)=\frac{1}{2}\norm{w}^\frac{C}{N}\sum_{i=1}^{N}\max(0,1-y_i(w^{T}x_i+w_0))$$
+$$=\frac{1}{2}\norm{w}^\frac{C}{N}\sum_{i=1}^{N}l_{hinge}(y_i(w^{T}x+w_0))$$
+
+\subsection{From Linear To Nonlinear Classifiers}
+To classify data with nonlinear features, we can use a nonlinear classifier with detectable features. 
+
+\subsubsection{Hand-Coding Nonlinear Features}
+If the data is not linearly separable in the original space, we can re encode data so they are linearly separable in some higher dimensional space: eg. 
+$$\phi(x): X \mapsto (x, |x|)$$
+Now, recall the formulation of Soft-Margin SVM: $$\min_{w,w_0,\xi} \frac{1}{2}\norm{w}^2+C\sum_{i}\xi_{i}$$
+$$y_i(\langle w, \phi(x_i) \rangle +w_0) \ge 1- \xi_i \quad i \in [N]$$
+$$\xi_i \ge 0, \quad i \in [N]$$
+Now you can show (see the representation theorem in pg. 182 of [SSS]) that the optimal set of weights $w$ is given by $$w=\sum_{i}\alpha_iy_i\phi(x_i)$$
+This is all well and good, but calculating $\phi(x_i)$ can take a lot of time. For example, if $\phi:\rr^3 \to \rr^9$ it will take $O(n^2)$ time.
+
+Now in minimizing the maximum margin separator and classifying points in soft-margin SVM we merely care about the computation of the inner product however:
+$$\langle w,\phi(x) \rangle = \sum_{i}\alpha_iy_i\langle \phi(x_i),\phi(x) \rangle$$
+So suppose we define a \vocab{Kernel Function} $$K(x,x')=\langle \phi(x_i),\phi(x) \rangle$$ \textit{without ever actually constructing} the nonlinear feature maps $\phi$. Then, the computation drops drastically: for example, in the previous $\phi:\rr^3 \to \rr^9$ case we have $O(n)$ time. 
+
+Using kernels to speed up linear regression as such is called the so called "\vocab{Kernel Trick}". 
+\newpage
+\section{September 21st, 2021: Complexity, Generalization, and Stability}
+
+\subsection{Motivation: Why Learning Theory?}
+What does it mean to learn? Why do we learn theory? The main reasons are to 
+\begin{itemize}
+    \item Discover better models
+    \item Discover better algorithms (w/"right" trade-offs) by learning
+    \item Demystify and explain what's going on
+    \item The theory will help unify our thoughts to help develop new theories
+\end{itemize}
+\subsection{Formalizing "Theory"}
+In our analysis of learning theory, we will make a few assumptions:
+
+\begin{assump}[Realizability Assumption]
+Suppose our hypothesis class is rich enough so that the \vocab{realizability} holds. That is, there is a hypothesis $h^* \in \mathcal{H}$ such that $L_\pp(h^*)=0$. 
+\end{assump}
+
+\begin{lemma}
+Over any random sample $S \sim \pp^n$, we have that $L_S(h^*)=0$.
+\end{lemma}
+\begin{proof}
+Observe that $\ee_{S \sim \pp^n}[L_s(h)]=L_{\pp}(h)$. Since loss is nonnegative, the conclusion holds.
+\end{proof}
+
+\subsubsection{Learnability for Finite Hypothesis Classes}
+Our task now, is to bound the risk $L_\pp(h_S)$ for classifiers on some \textit{arbitrary} ERM hypothesis $h_S$. More formally, we seek to attain $L_\pp(h_S) \le \epsilon$.
+
+For the finite case, the following theorem gives us an answer:
+\begin{thm}
+Let $|S|=N \ge \log(|\mathcal{H}|/\delta)/\epsilon$. Every ERM hypothesis $h_S$ satisfies $L_\pp(h_S) \le \epsilon$ with probability at least $1-\delta$ (over choice of data $S$). 
+\end{thm}
+\subsubsection{PAC-learnability: Formal Definition}
+We now generalize to non-finite classes:
+\begin{defn}
+A hypothesis class $\mathcal{H}$ is \vocab{PAC-learnable} if there exists a function $N_\mathcal{H}(\epsilon, \delta)$ and a learning algorithm with the following property: \textit{for every} $\epsilon, \delta \in (0,1)$ and distribution $\pp$ trained using $N \ge N_{\mathcal{H}}(\epsilon,\delta)$ iid examples from $\pp$, the learning algorithm returns a hypothesis $h$ such that $L_\pp(h) \le \epsilon$ with confidence $1-\delta$ (over choice of samples).
+\end{defn}
+
+Why are "probably" and "approximately" inevitable? 
+\begin{itemize}
+    \item Because $L_\pp(h_S)$ depends on $S$, there is a chance that $S$ is not representative of $\pp$. Thus, we introduce the \vocab{confidence parameter}- $\delta$.
+    \item Even if $S \sim \pp$ some details still may cause error, which requires an \vocab{accuracy parameter} $\epsilon$.
+\end{itemize}
+
+\subsubsection{PAC Learnability - What If?}
+
+Two questions: what if realizability does not hold? What about for infinite hypothesis class?
+
+\subsubsection{Agnostic PAC-Learning}
+If realizabiilty is impossible, then we have by the No-Free-Lunch Theorem that there will be no learning to match the Bayes Classifier. So there is no hope of satisfying $L_\pp(h) \le \epsilon$. So let us \textit{weaken} our target:
+$$L_\pp(h) \le \inf_{h \in \mathcal{H}}L_\pp(h')+\epsilon$$
+PAC-Learnability requites that the estimation error should be bounded \textit{uniformly over all} distributions fort a given hypothesis class. In our new definition, we will try to bound it by the value of the \textit{optimal} loss. This framework is called \textit{Agnostic PAC-Learnability} and is defined formally as follows:
+\begin{defn}
+A hypothesis class $\mathcal{H}$ is \vocab{agnostic PAC-learnable} if there exist a function $m_{\mathcal{H}}:(0,1)^2 \to \nn$ and a learning algorithm with the following property: for every $\epsilon, \delta \in (0,1)$ and for every distribution $\mathcal{D}$ over $\mathcal{X} \times \mathcal{Y}$, when running the learning algorithm on $m \ge m_{\mathcal{H}}(\epsilon, \delta)$ iid examples generated by $\mathcal{D}$, the algorithm returns a hypothesis $h$ such that, with probability at least $1-\delta$ (over the choice of $m$ training examples, $$\mathcal{L}_{D}(h) \le \min_{h \in \mathcal{H'}}\mathcal{L}_{D}(h')+\epsilon$$
+\end{defn}
+
+\subsection{Uniform Convergence}
+The main idea behind uniform convergence is as follows: if $\mathcal{L}_{S}(h)$ for all $h \in \mathcal{H}$ is close to $L_\pp(h)$ than the ERM solution $\mathcal{L}_{S}(h_S)$ will also have small risk $L_{\pp}(h_S)$. This leads us to the notion of an \textit{$\epsilon$-representative}:
+\begin{defn}
+A dataset $S$ is called \vocab{$\epsilon$-representative} if $\forall{h} \in \mathcal{H}$, $$|\mathcal{L}_{S}(h)-\mathcal{L}_\pp(h)| \le \epsilon$$
+\end{defn}
+\subsubsection{Uniform Convergence $\implies$ PAC-Learnability}
+The idea of $\epsilon$-representatives naturally yields itself to agnostic PAC-learnability: \begin{lemma}
+Assume $S$ is $\epsilon/2$-representative. Then, any ERM solution $h_S \in \text{argmin}_{h \in \mathcal{H}}L_S(h)$ satisfies $$\mathcal{L}_{\pp}(h_S) \le \min_{h \in \mathcal{H}}\mathcal{L}_\pp(h)+\epsilon$$
+\end{lemma}
+\begin{proof}
+$$\mathcal{L}_{\pp}(h_S) \le \mathcal{L}_{S}(h_S)+\frac{\epsilon}{2} \le \mathcal{L}_{S}(h)+\frac{\epsilon}{2} \le \mathcal{L}_{\pp}(h)+\frac{\epsilon}{2}+\frac{\epsilon}{2}=\mathcal{L}_{\pp}(h)+\epsilon$$
+\end{proof}
+Therefore, to ensure the ERM rule yields an agnostic PAC-learner, it suffices to show that with probability $1-\delta$ (over a random choice of dataset), the dataset will be $\epsilon$-representative (uniformly over all hypotheses in the hypothesis class).
+
+One interesting note: uniform convergence has almost no hope in proving deep learning models (See here: \url{https://arxiv.org/abs/1902.04742}). 
+
+\subsection{Infinite Hypothesis Classes}
+For finite-hypothesis classes, we have shown PAC-learnability given that the sample size is large enough. We now generalize to infinite-hypothesis classes, provided a more refined notion of "size/complexity". 
+
+\subsubsection{Measuring Complexity: Motivation}
+The main idea is that for learnability, the main thing that matters is not the literal size of $|\mathcal{H}|$ but rather the number of data points that can be classified correctly.
+
+In PAC learning, we are restricted to distributions for which there is a zero-risk classifier (this is our "realizability assumption"). 
+
+Now, the motivation behind the VC-Dimension as a measure of complexity is the following: we can try to construct a subset $C$ of the data domain for which our classifier succeeds. To understand the power of our hypothesis class, we focus on its behavior on $C$, and try to check: how many different possible classification decisions on $C$ can our hypothesis class capture (the maximum being: $2^{|C|}$)?
+
+Now, a problem occurs when $|C| \to \infty$. Why can this power to classify be "bad"? If the hypothesis class can explain all the decisions possible on $C$, then one can construct a “bad data distribution” so that we maintain realizability on $C$ but can totally err on the part outside of $C$, and thus suffer large risk overall.
+ 
+\subsubsection{Measuring Complexity: VC Dimension}
+
+Our intuitive notion of increasing "richness" or the "complexity" leads us to a natural definition for the VC-dimension:
+
+\begin{defn}
+A set of points is \vocab{shattered} by a hypothesis class $\mathcal{H}$ for all possible labels of the examples into $\{0,1\}$ if there is a \textit{consistent} hypothesis in $\mathcal{H}$ (ie. one with zero error). 
+\end{defn}
+
+This leads us directly to the definition of VC Dimension: 
+
+\begin{defn}
+The \vocab{VC-dimension} of a hypothesis class $\mathcal{H}$, denoted by $VC\dim(\mathcal{H})$, is the maximal size of a set $C \subset \mathcal{X}$ that can be shattered by $\mathcal{H}$. If $\mathcal{H}$ can shatter sets of arbitrary large size we say that $\mathcal{H}$ has infinite VC-dimension.
+\end{defn}
+
+\begin{remark}
+To show $VC(\mathcal{H})=d$, we need to show a set $C$ that there is of dimension $d$ that is shattered by $\mathcal{H}$ and \textit{none} that is of dimension $d+1$!
+\end{remark}
+
+Note, that this form of complexity \textit{only works} for binary classification: there are a variety of other notions of complexity such as the Pollard Pseudo Dimension, Counting Numbers, etc.
+
+\subsubsection{The Fundamental Theorem of Statistical Learning}
+
+There is a converse to the non-PAC-learnability for infinite VC Dimension, stated as follows. We skip the proof.
+\begin{thm}[Fundamental Theorem of Statistical Learning]
+Let $\mathcal{H}$ be a hypothesis class of functions from a domain $\mathcal{X}$ to $\{0,1\}$ and let the loss function be the $0-1$ loss. Then, the following are equivalent:
+\begin{enumerate}
+    \item $\mathcal{H}$ has the uniform convegrence property
+    \item Any ERM rule is a successful agnostic PAC-learner for $\mathcal{H}$.
+    \item $\mathcal{H}$ is agnostic PAC-learnable
+    \item $\mathcal{H}$ is PAC-learnable. 
+    \item Any ERM rule is a successful PAC learner for $\mathcal{H}$.
+    \item $\mathcal{H}$ has finite VC-dimension.
+\end{enumerate}
+\end{thm}
+Intuitively, infinite VC dimension implies a highly complex model which may lead to overfitting in ERM. Then, by No-Free Lunch, there is a distribution where the points will mostly be incorrectly classified. Philosophically:
+
+\begin{center}
+\textit{If someone can explain every phenomenom, their explanations are worthless.}
+\end{center}
+
+\subsection{Algorithmic Stability}
+\subsubsection{Introduction}
+Intuitively, stability measures how stable/sensitive an algorithm is to an input. When the algorithm is \textit{insensitive}, the \vocab{excess risk} (gap between empirical and actua risk) will be small (for example, pertburations/resampling of points). Some examples:
+\begin{itemize}
+    \item Leave/Corrupt Points
+    \item Noise in the algorithm itself (eg. in randomized algos)
+\end{itemize}
+
+\subsubsection{Setup}
+
+We first define what a \textit{learning algorithm} is on a distribution $\pp^n$. 
+\begin{defn}
+A \vocab{learning algorithm} $A$ is a map $A: \pp^n \to \mathcal{H}$. Thus, $A(S)$ denotes the hypothesis returned by our algorithm on training data $S$. 
+\end{defn}
+
+We will judge stability by small changes in $S$. 
+
+\begin{idea}[The "ghost sample idea"]
+Let $z=(x,y)$ denote a (data, label) pair and let $S,S'$ denote two independent samples drawn from $\pp^n$. So eg. $S=(z_1,\cdots,z_n)$. Then, we create a "mixed-up" sample $$S^{i}=(z_1,\cdots,z_i',\cdots,z_n)$$ where the $i$th example comes from $S'$. 
+\end{idea}
+
+Now we define a notion of "stability" as follows:
+\begin{defn}
+The \vocab{average stability} of an algorithm $A$ is defined by $$\Delta(A) := \ee_{S,S'}\left[\frac{1}{n}\sum_{i}l(A(S),z_i')-l(A(S),z_i')\right]$$
+\end{defn}
+
+Why is this useful? Well, we can view $\Delta(A)$ as an "average sensitivity" in a single example. 
+
+For $A(S)$ example $z_i'$ is \textit{unseen} while for $A(S^i)$ it is \textit{seen}. Thus, $\Delta(A)$ also measures the average difference in loss in seen and unseen samples. 
+
+\begin{prop}
+The expected excess risk is equal to $\Delta(A)$. That is, $$\ee_{S}[\mathcal{L}_{\pp}(h_S)-\mathcal{L}_S(h_S)]=\Delta(A)$$
+\end{prop}
+\begin{proof}
+We have $$\ee[\mathcal{L}_{\pp}(h_S)-\mathcal{L}_S(h_S)]=\ee[\mathcal{L}_\pp(A(S))-\mathcal{L}_{S}(A(S))]$$
+$$=\ee\left[\frac{1}{n}\sum_{i}l(A(S),z_i')\right]-\ee\left[\sum_{i}l(A(S),z_i')\right] := \Delta(A)$$
+\end{proof}
+
+\subsubsection{Uniform Stability Instead of Average}
+Say we consider only $S$ and $S'$ that differ in exactly one point $$\Delta_{sup}(A)=\sup_{S,S'}\sup_{z \in \pp}|l(A(S),z)-l(A(S'),z')|$$
+Uniform stability is computing the worst case difference in the predictions of the
+learning algorithm run on two arbitrary datasets that differ in exactly one point.
+\begin{remark}
+Since $\Delta_{sup}$ upper bounds $\Delta$, it also bounds the excess risk
+\end{remark}
+
+Some extra remarks:
+For convex ERM, we can show 
+\begin{thm}[Algorithmic Stability of Convex ERM]
+We have for an ERM model with a convex loss function that 
+$$\Delta_{sup}(ERM) \le \frac{4L^2}{\mu{n}}$$
+\end{thm}
+\newpage
+
+\section{September 23th, 2021: Regularization, Sparsity}
+
+\subsection{Regularized Regression}
+\subsubsection{Formal Setup}
+Our goal is to find a \textit{good} estimator $h: \mathcal{X} \to \mathcal{{Y}}$ for \textit{all} (not just empirical) data. Here $\mathcal{Y}$ is now continuous. That is, we try to find $$\min_{h}\ee_{(X,Y)}[(h(X)-Y)^2]$$ 
+Now which $h$ should we use? We claim we use $\eta(x)=\ee[Y|X=x]$. 
+\begin{thm}[Bayes Classifier for Least Squares]
+Let $\eta(x)=\ee[Y|X=x]$ and $h: \rr^d \to \mathcal{Y}$. Then
+$$\ee[(\eta(x)-Y)^2] \le \ee[\ee[(h(x)-Y)^2]$$
+\end{thm}
+
+Thus, our goal is to use $\eta(x)$ for our predictions \textit{but} as usual we do not know have access to the probability distribution $\pp(X,Y)$ so we cannot use $\eta(x)$. 
+
+The idea, is then to use some functional form of $\ee[Y|X=x]$ and learn it from the data(eg. linear, nonlinear, etc)
+
+\subsubsection{Linear Least-Squares (ERM Problem)}
+We now discuss the ERM-formulation for linear classifiers.
+
+Given training data $S=\{(x_1,y_1,)\cdots,(x_N,y_N)\}$ where $x \in \rr^d$ and $y \in \rr$, we try to find $$\min_{w} \mathcal{L}(w)=\sum_{i}(y_i-w^{T}x_i)^2=\norm{Xw-y}^2$$
+Here, $X \in \rr^{N\times{d}}, y \in \rr^{N}, w \in \rr^{d}$. Then, from linear algebra, we must have $$w=(X^{T}X)^{-1}X^{T}y$$
+Now, a problem occurs when $d>N$: in that case, $X^{T}X$ is \textit{not} invertible so there is no minimum solution. How might we resolve this case?
+
+\subsubsection{How About A Hack? Adding a Regularization Term}
+One hack is to replace $X^{T}X \mapsto X^{T}X+\lambda{I}$ with $\lambda>0$. The regularizer now makes $X^{T}X$ nonsingular which is the main motivation for \textit{ridge regression}. Then, $$w=(X^{T}X+\lambda{I})^{-1}X^{T}y$$
+
+\subsubsection{Ridge Regression - Regularized Least Squares}
+ Putting this hack in action, we get \vocab{ridge regression} (also known as \vocab{Tikihinov regression}):
+ $$\min_{w}L(w) := \frac{1}{2}\norm{Xw-y}^2+\frac{\lambda}{2}\norm{w}^2$$
+ where $X \in \rr^{N \times d}, y \in \rr^N, w \in \rr^d, \lambda >0$. Then, $$w=(X^{T}X+\lambda{I})^{-1}X^{T}y$$
+ 
+ Now, if $\lambda \to \infty$, we have $w \to 0$ so the regularization is also called "weight decay" since the weight decreases. 
+ 
+ This was the ERM solution: what about for unseen data?
+
+\subsubsection{Regularization and Bias Variance}
+Now, consider the noisy observation model $y=f(x)+\eta$. We try to solve least squares to come up with $\hat{y}=\hat{f}(x)$. Then expected error is $$\ee[\norm{y-\hat{y}}^2]=\ee[\norm{y-\hat{f}}^2]$$
+Now, we have 
+$$\norm{y-\hat{f}}^2=\norm{y-f+f-\hat{f}}^2=\norm{y-f}^2+\norm{f-\hat{f}}^2+2\langle y-f, f-\hat{f} \rangle$$
+$$=\norm{\eta}^2+\norm{f-\hat{f}}^2+0$$ in expectation. 
+Then, $$\ee[\norm{f-\hat{f}}^2]=\ee[\norm{f-\ee{f}}^2]+\ee[\norm{\hat{f}-\ee\hat{f}^2}]+0$$ in expectation so 
+$$\ee[\norm{y-\hat{f}}^2]=\ee[\norm{\eta}^2]+\ee[\norm{f-\ee{f}}^2]+\ee[\norm{\hat{f}-\ee{\hat{f}}}^2]$$
+where the first, second, and third terms are called the \vocab{noise}, \vocab{bias}$^2$, and \vocab{variance} respectively.
+
+Now, the noise never goes away as expected. If realizability holds, of course, $\eta=0$, but otherwise it is not. The bias roughly tells us "how much" we differ in our model from the truth, while the variance tells us how much the model itself fluctuates. This is an example of the \vocab{bias-variance tradeoff}.
+
+\begin{thm}[Gauss-Markov Theorem]
+The linear least-squares estimator is the best unbiased linear estimator (i.e., the lowest variance estimator among linear estimators).
+\end{thm}
+
+\begin{ex}
+Ridge Regression is biased, while least squares is not.
+\end{ex}
+
+Moral of the story: We can achieve lower variance with more biased estimators.  
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/09232101.png}
+\end{center}
+
+\subsubsection{Conclusion}
+So concluding our discussion about complexity:
+\begin{itemize}
+    \item Increased model complexity: higher variance, lower bias
+    \item Decreased model complexity: lower variance, higher bias
+    \item Model complexity captured by "set" of parameters in linear regression
+    \item Thought process: \textit{bias-variance tradeoff}
+\end{itemize}
+
+\subsubsection{Regularization-Additional Discussion}
+
+Now recall that in machine learning, we are looking at \textit{numerical}, not \textit{mathematical} invertibility. Thus, we look at the singular values.
+
+Let $\sigma_{max}(X)/\sigma_{min}(X)$ be called the \vocab{condition number}. If the condition number is big, then $X^{T}X$ is close to singular, so in minimizing $\norm{Xw-y}^2$ we have that $$w=(X^{T}X)^{-1}X^{T}y$$ will be largely sensitive to perturbations. 
+
+Thus, we need another way to apply regression: suppose we have some prior knowledge about what "model parameters" look like or \textit{should} look like. Then, we can apply a view of regression called the \vocab{Bayesian View}. 
+
+\subsubsection{Other-Forms of Regression}
+There are many other forms of regression. Recall the $L^p$ norm:
+\begin{defn}
+We have for $p \ge 1$ that $$\norm{w}_{p}=\left(\sum_{i}|w_{i}|^{p}\right)^{1/p}$$
+to be the \vocab{$L^p$ norm}. As $p \to \infty$, we have $$\norm{w}_{\infty}=\max_{i} {w_i}$$
+is the \vocab{$L^\infty$ norm}.
+\end{defn}
+Now, though ridge regression uses the $p=2$ norm, we can more generally do \vocab{$p$-norm regularization}:
+$$\min_{w}\frac{1}{N}\sum_{i=1}^{N}(y-w^{T}x_i)^2+\lambda\norm{w}_p^{p}$$
+We can also use other types of norms:
+$$\min_{w}\frac{1}{N}\sum_{i=1}^{N}(y-w^{T}x_i)^2+\lambda\Omega(w)$$
+where $\Omega$ can be the nuclear norm, atomic norm, and many others. 
+
+\subsection{More on L1-Norms}
+\subsubsection{L1-Regression vs. Ridge Regression}
+Why might we use the \vocab{L1-norm}? The L1-norm is also called \vocab{LASSO} for \textit{Least Absolute Shrinkage and Selection Operator}. 
+
+The L1-norm is useful for a variety of reasons but most importantly, because it is \textit{sparse}. That is to say, the $W$ vector will have very few (truly) nonzero values so it will cancel out the "features" of $X$ that are important. This is in contrast to ridge regression for example that tends to select everything. 
+
+Why is this true? Well, ridge leads to "shrinkage":
+$$\min_{w} (y-w)^2+\lambda\norm{w}^2 \implies w=\frac{y}{1+\lambda}$$
+L1-regression on the other hand causes "thresholding": 
+$$\min_{w}(y-w)^2+\lambda\norm{w} \implies w=\begin{cases} y-\frac{\lambda}{2}  & y>\lambda/2 \\ y+\lambda/2 & y< -\lambda/2 \\ 0 & y \in [-\lambda/2, \lambda/2]\end{cases}$$
+
+\subsubsection{L1-Norm: Two More Views}
+
+\textbf{Convex Relation to the Quasi Norm:}
+
+Now define the $L_0$ quasi-norm to be 
+$$\norm{w}_0=\#\{\text{nonzero elements in }w)\}$$
+Now we can instead try to minimize the sum with this $\norm{w}_0$ quasi-norm. But this is NP-hard due to the nonconvexity of the $L_0$ quasi-norm so the $L_1$ norm serves as a valid alternative. So you can also think of it as a "convex relaxation" of the quantity you are really after. 
+
+\textbf{Matrix Setting and Trace Norm:}
+
+The matrix analog of the $L_0$ norm is the rank of $X$. Similarly, the matrix analog of $L_1$ norm is the sum of the singular values. You can then carry the same story. 
+
+\subsection{Implicit Regularization I}
+\subsubsection{Nonlinear Least Squares}
+So far, we have talked much about explicitly regularizing terms by adding a term. Yet, we will implicitly regularize the data in some way. 
+
+Suppose we use some nonlinear features:
+$$\min_{w}\mathcal{L}(w) := \sum_{i}(y_i-w^{T}\phi(x_i))^2$$
+Of course, $\phi$ could be infinite dimensional, so we just use the "Kernel trick". By taking the derivative, we get $$w=\sum_{i}\alpha_{i}\phi(x_i)$$ for some $\alpha_i$. Then, for new $\phi(x)$, we have $$w^{T}\phi(x)=\sum_{i}\alpha_ik(x_i,x)$$
+Now you can also find the $\alpha$s from the derivative by $$\alpha=(K+N\lambda{I})^{-1}y$$
+You can even do \textit{ridge regression} with kernels (this is called *surprise* \vocab{kernelized ridge regression}). This is a horror show so we skip it.
+
+But the main idea behind KRR is that we can use the Kernel trick and find the corresponding $\alpha$s (without actually making a $\phi$ that is also computationally expensive) and then just find the corresponding $\alpha$s. 
+
+\subsubsection{KRR Without the Ridge}
+
+Now, research has been done where we \textit{add} explicit regularization to kernelized regression. However, the following has happened: 
+\begin{center}
+    \includegraphics[scale = 0.45]{pics/09232102.png}
+\end{center}
+
+The ideai is that the kernel is already \textit{implicitly} regularizing the regression so explicit regularization can actively \textit{increase} the error for kernels.
+
+\subsection{Implicit Regularization II}
+Idea: recall from our previous discussion about recent developments in the bias-complexity tradeoff, maybe if we can overfit \textit{enough} we might have something good. The new model can be improving!
+\subsubsection{Implicit Regularization of GD/SGD}
+Assuming a linear model $y=Xw$, we have form gradient descent $$w_{t+1}=w_{t}-\alpha g_{t} x_{t}$$ 
+One simple observation: setting $w_0=0$, we have all future $w_{t}$s lie in the span of the data. Thus, even though the general weights may be high dimensional, SGD searches our space at most dimension $n$ (the number of data points) as a result.
+
+Thus, at optimality we have:
+\begin{itemize}
+    \item $Xw=y$ because total loss is zero 
+    \item $w=X^{T}v$ for some vector $v$ because $w$ is in span of data $$w=X^{T}(XX^{T})^{-1}y$$
+\end{itemize}
+Thus, GD/SGD gives $Xw=y$ or the min. norm solution!
+
+\subsubsection{Implications for Classification}
+Since we have that SGD is biased to finding the minimum norm, it solves the optimization problem $$\min{\norm{w}^2}, \quad y_i w^{T}x_i=1$$
+\newpage
+
+\section{September 28th, 2021: Neural Networks - Introduction}
+\subsection{Neural Networks: Motivation}
+\subsubsection{Four Related Views}
+We'll begin by stating some intuition for how modern Neural Networks developed:
+\paragraph{Motivation 0: Features}
+The task of extracting \textit{features} from data is one of the main goals of Machine Learning. How do we learn features from data? For example, how might we turn an email into a vector? How do we extract the \textit{correct} feautres? This is an arduous task and so in ML, we try to \textit{learn the features from the data}.
+
+Now, we shouldn't get too excited: sometimes, we won't have enough training data to get certain features so sometimes it is still necessary to extract features by hand (This is unless we improve the architecture further, so really its an ongoing game).
+\paragraph{Motivation 1: Kernels to Neural Nets}
+Recall when using a Feature map $x \to \phi(x)$ that we find the optimal solution is of the form $$w=\sum_i{\alpha_i y_i \phi(x_i)}$$ use the Kernel trick to get that $$\langle w, \phi(x) \rangle = \sum{\alpha_i y_i k(x_i,x)}$$ 
+to find the model. Now, define a new set of features $\Phi$ defined by $$\Phi(x)=[y_1k(x_1,x),\cdots,y_nk(x_n,x)]$$
+Then, we can write $$\langle w, \phi(x) \rangle = \sum_{i}\alpha_i\Phi(x)_i = \langle \alpha, \Phi(x) \rangle$$
+Now, one thing to note is that these features $\Phi$ is \textit{not learned} from the data. It is fixed by our choice of kernels with "hacky" ways: validation sets, guesswork, prior intuition, hyperparameter tuning, etc.
+
+So we bring up a "what if" scenario: what if we jointly learn $\Phi$ from the data to optimize data performance rather than constructing $\Phi$ to do so?
+
+\paragraph{Motivation 2: Experts Feed Other Experts who Feed...}
+Recall in logistic regression, we first used weights to take $$h(x) \mapsto \sigma(w^{T}x+b)$$
+Now, instead of just taking the opinion of a single "expert" or output, we can take a collection of them before concatenating them as: $$x \mapsto (\sigma(w^{T}x+b_1),\cdots,\sigma(w_m^{T}x+b_m)) \equiv \sigma(\textbf{W}\textbf{x}+\textbf{b})$$
+Now, we could use logistic regression again to combione them into another prediction: 
+$$x \mapsto \sigma(\textbf{u}^{T}\sigma(\textbf{W}\textbf{x}+\textbf{b}_1)+c)$$
+Doing this recursively creates a \vocab{Feed-Forward Neural Network}, aka  \vocab{Multilayer Perceptron (MLP)}
+
+\paragraph{Motivation 3: Simple to Complex Computation}
+
+The last idea is to go from just to go from a simple model and take a bunch of them together in parallel and then combining them in some way to get increasingly complicated computations to get a final output:
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/092802.png}
+\end{center}
+For example, in a CNN you might intuitively say that the first layer just takes information of primitive things like "edges" or "lines" and by the higher layers, it might detect some more semantic features in the boundary to make a decision.
+
+Now FFNN (aka MLP) is just a line graph. What about other structures? We will study those in the next lecture (eg. CNNs, RNNs, GNNs, etc)
+
+\subsection{Some Jargon and Introduction}
+We now define some definitions for neural networks:
+\begin{defn}
+The \vocab{input layer} of a neural network consists of the components or features that form the input vector. 
+\end{defn}
+
+\newpage
+\begin{defn}
+The \vocab{hidden layers} form the bulk of the architecture and are formed by weighting the inputs from previous layers. Each subsequent hidden layer will generate more and more complex features. 
+\end{defn}
+
+
+\begin{defn}
+The \vocab{output layer} is the layer receiving features from the penultimate layer and outputs the decision. 
+\end{defn}
+
+Two-layer networks will refer to 2 layers: 1 hidden and 1 output. We don't count the input layer (this varies depending on the jargon of the specific literature).
+
+\begin{ex}[Toy example: zero hidden layers]
+Consider the toy example of a 1-layer NN (with no hidden layers, just one output layer and one input layer). Here, the activation function would then be $f(z)=z$, the identity.  
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/092803.png}
+\end{center}
+The network just aggregates its inputs and outputs the result. If we let $NN(z)=sign(f)$ we get a linear classifier. 
+\end{ex}
+Now, there are many examples of activation functions: 
+\begin{center}
+    \includegraphics[scale = 0.4]{pics/092804.png}
+\end{center}
+We could use the sigmoid or $\tanh$ activation functions for examples. Henceforth, however, we will generally assume our activation function to be the \vocab{Rectified Linear Unit (ReLU)}, defined $f(z)=\max(0,z)$. 
+
+Why would we use the ReLU function? Sigmoid is motivated by the creation of a "model probability". ReLU is motivated since it only uses \textit{some} of the inputs and "activates" them while creating other dead neurons making backpropogation faster and also selecting certain features.
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/092805.png}
+\end{center}
+We can think of the $f(z_i)$s after activating our weighted averages as new "features" that we then aggregate into our output.
+
+These features can be useful in separating for example points that are non-linearly separable (eg. by using a ReLU network with two sets of  neurons).
+\begin{center}
+    \includegraphics[scale = 0.5]{pics/092806.png}
+\end{center}
+
+Note however that although we can see \textit{visually} that we will only need two nodes, in practice we might need more because the corresponding optimization problem may be highly nonconvex and may need more and more nodes in the hidden layer to solve. 
+
+Suppose we find the weights (perhaps by luck). Then, after activation the points will be correctly classified by ReLU as the green points go to $0$. 
+
+An exercise: what if the signs of the classifier would flipped? Some may be favorable, some may not. Which of these configurations may work and which may not? This is a hard task and there are many different theoretical answers for various different scenarios, but this is still a big topic of interest.
+
+\subsection{Representatino Power 1}
+Now, in the previous example, we required $2$ nodes in our neural network to "do the job". But in general, how many nodes might we need? This leads us to the main ideas of representation theory, which tell us a little bit about how powerful the Neural Networks are. 
+
+As stated before, there are many different theoretical statements on this issue. One such example:
+\begin{thm}[Cybenko, 1989]
+Let $f$ be a sigmoid activation. Given any continuous function $'h'$ on a compact set $C \in \rr^{d}$, there exists a NN with 1-hidden layer and a choice of parameters such that its output $$F(x)=\sum_{i=1}^{m}\nu_if(w_i^{T}x+b_i)$$
+approximates $'h'$ to any desired accuracy $\epsilon>0$, i.e., $$|F(x)- h(x)| < \epsilon$$ for all $x \in C$.
+\end{thm}
+There are even more "universal approximation" results for other activation functions (including bounded non-constant activation functions and non-polynomial functions by Hornik (1991) and Leshno (1993) for shallow NNs). A problem with these type of results is that the number of neurons/nodes may blow up with these approximations. 
+
+\subsubsection{Expressivity of ReLU Networks}
+ReLUs are powerful as well because they are universal approximators so they can generally represent any continuous function (as a corollary of Leshno's Theorem). The downside of course to Leshno's approach is that the architecture can become unbearably large: finding the weights will also require quite a bit of "craftiness" as well because we only work with shallow networks. 
+
+In the modern day, with "deep" neural networks we can mitigate this problem to an extent. Now, we would need to show that deep layer neural networks are universal approximators. We show the following theorem which generalizes to even deeper networks:
+
+\begin{thm}
+For every continuous function $g$ (on a bounded set $X$) and every tolerance $\epsilon >0$, there exists a $3$-layer ReLU network $h$, such that $$\norm{h-g}_1 = \int_{\mathcal{X}}|h(x)-g(x)|dx \le \epsilon$$
+\end{thm}
+\textit{Proof Overview:} WLOG let $\mathcal{X} = [0,1]$. Approximate the continuous function with continuous functions of length $\delta{x}$ (in $d$ dimensions we will need $1/\delta^d)$. These are indicator functions of hyper-rectangles: comnbining "enough" gives the whole function up to some $\epsilon$. Do conitinuous "fudging" of the $\delta$s by combining them with a ReLU. Since these ReLUs approximate the indicators and the indicators approximate $g$, combining the ReLUs approximate $g$ so a deep neural network works (for more detailed notes see Appendix). 
+
+\subsection{Representation Power 2}
+Now, for neural networks with a fixed number of neurons and depth, how powerful is the network? That is, how complicated is it? 
+
+\subsubsection{The Memorization Phenomenon}
+Overparametrized Neural Networks trained with SGD an memorize even \textit{random noise} at times (because of the expressive, complex nature of the networks!) 
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/092807.png}
+\end{center}
+Why is it memorizing even this noise? This is explained by the finite expressivity as we will seen in the following section.
+
+\subsubsection{Finite Sample Expressivity and Memorization}
+We define a notion of "expressivity" for a neural network. 
+\begin{defn}
+A neural network $f_\theta$ is \vocab{finite expressive} if for arbitrary $\{(x_i,y_i)\}_{i=1}^{N}$ there exists a parameter $\theta$ such that $f_\theta(x_i)=y_i$. 
+\end{defn}
+\begin{defn}
+The \vocab{memorization capcity} of a neural network $f_0$ is defined as the maximum $N$ such that for all $\{(x_i,y_i)\}_{i=1}^{N}$, there exists a parameter $\theta$ such that $f_\theta(x_i)=y_i$. That is, it is the maximum $N$ for which the neural network is finite expressive. 
+\end{defn}
+That is to say that the network can "memorize" arbitrary input/output dataset with (input/output) points. 
+
+The sample expressivity is the "flipside" of the VC-dimension in which there \textit{exists} a set of $x_i$ for which any configuration of $y_i \in \{-1,+1\}$. Thus, obviously 
+\begin{center}
+    Memorization Capcity $\le$ VC dimension
+\end{center}
+Now, most memorization imposes \textit{strong} assumptions of the number of hidden nodes. Can we use depth to memorize with fewer hidden nodes? 
+\subsubsection{A Few Sufficiency and Neccesity Results}
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/092808.png}
+\end{center}
+The following are a few modern results about memorization capacity:
+\begin{thm}[Yun, Sra, Jadbabaie, 2019]
+A $2$-hidden-layer ReLU network with hidden layer dims $d_1d_2 \ge 4Np$ can memorize arbitrary datasets with $N$ distinct points.
+\end{thm}
+
+\begin{prop}[Yun, Sra, Jadbabaie, 2019]
+A $3$-hidden-layer ReLU network with hidden layer dimensions $d_1d_2 \ge 4N$ and $d_3 \ge 4p$ can memorize any arbitrary classification dataset with N distinct points 
+\end{prop}
+
+\begin{thm}[A Neccesity Result]
+A 1-hidden-layer ReLU network with $d_1+2<N$, or a 2-hidden-layer ReLU network with $2d_1d_2+d_2+2 < N$ \textit{cannot memorize} arbitrary datasets ($p = 1$) with $N$ points.
+\end{thm}
+
+\begin{thm}
+The \textit{neccesary and sufficient} width for memorizing $(p=1)$: $1$-hidden layer $\Theta(n)$ vs. $2$-hidden layers $\Theta(\sqrt{n})$
+\end{thm}
+\subsection{Optimization}
+There are many aspects of optimization: 
+\begin{itemize}
+    \item Backprop $\implies$ SGD
+    \item Minibatches
+    \item Initialization
+    \item Batchnorm
+    \item Gradient clipping
+    \item Adaptive methods
+    \item Momentum
+    \item Layerwise params
+\end{itemize}
+We will spend a brief time discussing these topics. 
+
+\subsubsection{SGD: Neural network training}
+Now recall the algorithm for \vocab{Stochastic Gradient Descent} 
+$$\min_{\theta} R_{N}(\theta) := \frac{1}{N}\sum_{i=1}^{N}l(y_i, F(x_i;\theta))$$
+Here, our loss function for our Neural Network may be something like $l(y,z)=\max(0,1-yz)$ or $l(y,z)=\frac{1}{2}(y-z)^2$. Then, SGD takes $$\theta \to \theta-\eta\frac{\partial{l(y,F(x;\theta))}}{\partial\theta}$$
+There are many different questions to ask for this iterative process: for example, how do we select $\theta_0$? 
+
+The idea is to initialize randomly, e.g., via the Gaussian $N(0, \sigma^2)$, where std $\sigma$ depends on the number of neurons in a given layer. This is the idea behind resolving \vocab{symmetry breaking}, in which small fluctuations across a critical point decides the systems fate.
+
+What about the step size $\eta$? How do you compute the partial derivative? The step size should ideally also be an adaptive, tunable parameter that is sensitive to the architecture.
+
+How might we compute a stochastic gradient? The idea is to use the recursive algorithm of \vocab{backpropogation}, where we keep track of how a change to the input of one layer impacts its output, and use extra storage to save this to save space. 
+\newpage
+
+
+\section{September 30th, 2021: Advanced Deep Learning}
+
+\subsection{Introduction}
+Now, in the last lecture, we saw how neural networks serve as universal function approximators. Now, all of machine learning is largely a game of finding maps $$f(x) \to y$$
+But neural networks (MLP) have been shown to be able to approximate \textit{any} such function. So are we done? Or is there something more that we can still do? 
+
+Indeed, we run into the issues of \textit{generalization} and \textit{efficiency}: can our neural networks actually generalize to more examples or is it just memorizing the data? And can we find $\theta^*$ in reasonable time? 
+
+More generally, there are \textit{many} UFAs: \textit{why} do we use neural networks (other than say an RBF kernel)? Is there something special about them? 
+
+The idea is that unlike other UFAs, as the model consumes more and more data, the model always improves. It doesn't just memorize data like tables: the more data you have, the better the networks become. 
+
+Some questions: how much data is required for learning? What if there are multiple consistent hypotheses?
+ 
+\begin{ex}[Example of Multiple Consistent Hypotheses]
+You might, for example, be trying to classify handwritten digits with colored backgrounds:
+\begin{center}
+    \includegraphics[scale = 0.2]{pics/09302101.png}
+\end{center}
+Your network might use either \textit{color} or \textit{shape}. Both features are \textit{consistent} in our training data. Then, though the model is consistent on the training data, if it detects color, it may perform horribly on test data. 
+\end{ex}
+In general, a Neural Network is searching a space of consistent hypotheses: $\mathcal{H}_{hypothesis}$ where it learns and spits out a point in the space (one specific classifier). 
+
+How does it learn some point? Does it detect the same features as humans? Consider the task of identifying cars: the machine may pick up on unwanted features and use \textit{those} to make classification instead. We have \textit{no way} of controlling \textit{what} features exactly the model learns. This is a big problem in machine learning and it leads up well into the idea of \vocab{robustness} that we discuss in Lecture 8. 
+
+The actual features the network picks up on depends on the data, architecure of the computer, optimizer, initialization, among other things. 
+
+\subsection{Exploiting Structures}
+Today, we discuss more advanced deep learning networks by being slightly more specific. Rather than creating a general MLP, \textit{if} we know the data has some certain structure or form (eg. images, sequences, graphs or so on we might use CNNS, RNNS/LSTMS, GNNs, or Self Attention/Transformer Networks)
+
+\subsection{Training Deep Networks}
+\subsubsection{SGD-NN Training}
+How do we minimize loss functions? We use SGD. How does this work? 
+\begin{enumerate}
+    \item \textit{Iterative Method}: How do we select $\theta_0$ (some are good, some are bad)? We know the functions we are learning can be highly nonconvex, depending on where we start, we may end up on different points on the error surface. Thus, various different initailizations may lead to different solutions. What is the general practice in initializing Neural Networks? Some ideas:
+    \begin{itemize}
+        \item Set $\theta_0=0$. Consider a ReLU network. Then, since nothing changes the gradients end up being $0$ so we are trapped! Nothing changes!
+        \item Set $\theta_0 = c \ne 0$. The problem with setting it to be constant is that there is a very small \vocab{effective capacity}: all the activations will just end up being the same!
+        \begin{center}
+            \includegraphics[scale = 0.3]{pics/09302102.png}
+        \end{center}
+        \item Set $\theta_0$s to be random initializations. This ends up being what we want to do as we can capture many different solutions. What distribution do we use? Modern research has shown that better initializations leads to better convergence:
+        \begin{center}
+            \includegraphics[scale = 0.3]{pics/09302103.png}
+        \end{center}
+        Coming up with good initializations however are not straightforward, despite being so important. 
+    \end{itemize}
+    Do items with different initialization lead to different results? Indeed, you may end up at different minima based on your random initializations. In \textit{supervised learning}, however, these different minima appear to be \textit{functionally} equivalent. In \textit{reinforcement learning}, the differences \textit{do} seem to matter, which is unfortunate and scary indeed. 
+    \item How do we set the learning rate $\eta$? We want an \textit{adaptive} scheme so $\eta$ is small and fast depending on what we need it to be. That is, the variable must be changed to optimize for speed (eg. by using momentum, adam, etc.). 
+    \begin{center}
+        \includegraphics[scale = 0.2]{pics/09302104.png}
+    \end{center}
+    \item How do we compute gradient updates to minimize loss functions?  
+    
+\end{enumerate}
+
+
+\newpage
+
+\section{October 5th, 2021:Neural Networks - GNNs, RNNs, Robustness}
+
+\subsection{Graph Neural Networks}
+In \vocab{Graph Neural Networks (GNN)} we get as an input a graph and apply the activation that takes at each node the average of the previous nodes as shown:
+\begin{center}
+    \includegraphics[scale = 0.3]{pics/1005211.png}
+\end{center}
+On the first hidden layer, the nodes each get information/features from adjacent nodes. As you keep adding more and more layers, the information from nodes farther away propogate into each of the nodes until there are $n$ layers at which point the nodes converge. 
+
+\subsection{Recurrent Neural Networks}
+\subsubsection{Overview}
+How would we deal with sequential data (ie. a sentence for autofill and or Natural Language Processing tasks)? How would we encode the words? One thing we could do is have a dictionary (aka bag of words) $\mathcal{D}$ and use one-hot encoding as our feature representation. 
+
+There are a few challenges to this approach: for one, each sentence has a different number of words. More importantly, there are long range dependencies so the model can not be purely modeled by convolutions (this is because words in a sentence are \textit{dependent} on previous words). 
+
+One solution we could use is a \vocab{pooling function} $g$ that can combine data from the words and then "pooling" them together to interpolate data.
+
+The other solution to this is to use a \vocab{Recurrent Neural Network} and add dependency functions $h_t$ (like "memory" of previous $x$s) between $x_t$s and then composing them as shown:
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10052103.png}
+\end{center}
+We do however run into a problem of memory. Consider the following example:
+\begin{ex}
+Adam went to the kitchen. He was thinking about the party. He got the milk.
+\end{ex}
+Here, the second sentence is \textit{unrelated} to the prior sentence so it can corrupt the memory ($h_i$s). In other words, this method can struggle to handle long-term dependencies.  
+
+\subsubsection{Gates}
+
+The solution to this problem is to use \vocab{gates} $$g=\sigma(W(x \circ h))$$
+This gives an "attention" score to each of the elements that help the memory make more use of the important inputs and less use of the non-important inputs. 
+
+\subsubsection{Transformers}
+
+Another important deep learning model is that of \vocab{Transformers}. 
+
+The idea is rather than using attention gates to process data we provide context for the positions of each word along with the contextual data.
+
+The idea is to seperate the inputs $x_i$ and seperating them into their keys $k_i,q_i,v_i$ by composing weights:
+$$k=W_kx, \quad q = W_qx, \quad v = W_vx$$
+Then, letting $a_{ij}=q_{i}^{T}k_j$ we define $z_i=\sum_{j}a_{ij}v_{j}$. Then, we can use $z_j$s to pool and perform RNN with gates. 
+
+\subsection{Robustness of Deep Neural Networks (DNN)}
+We illustrate the predicament with an example of a problem with deep neural networks: suppose we have an image of a panda that outputs "panda" under DNN. Say during the testing phase, someone slightly perturbs the image by a small $\delta$. Although the new image still looks almost \textit{completely} idntical to the image, the network outputs that the new image is a "gibbon". We have come to the problem of \vocab{robustness} of the ML algorithm: this can happen when we have come up with a set of \vocab{adversial} examples:
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10052104.png}
+\end{center}
+For example, a network could misclassify a "toy turtle" instead of a real turtle. 
+
+\subsubsection{How to Generate Adversarial Examples}
+It is very easy to come up with adversarial examples. First, suppose that you have access to the model itself (such attacks are called \vocab{White Box Attack}). Then, add noise on the direction of the highest gradient (this is called the \vocab{Fast Gradient Sign Method}). 
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10052105.png}
+\end{center}
+So how do we improve robustness and fight against these adversarial attacks?
+
+\subsection{Machine Features}
+One thing you can do to test robustness is to evaluate your network on a valuation set that includes random perturbation to data (eg. Gaussian noise, shot noise, etc.)
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10052106.png}
+\end{center}
+
+You can then check the error(mCE) which gives the relative error in the model over the error in AlexNet:
+$$\text{Rel}.mCE=\frac{E^{nrml}_{model}-E^{noise}_{model}}{E^{nrml}_{AlexNet}-E^{noise}_{Alexnet}}$$
+One thing we see however (from empirical studies) is that even though you add more layers, though the relative errors go down the $mCE$ does not. So what causes these adversarial examples?
+
+The answer is that these adversarial examples are \textit{not} actually bugs but rather features. Humans and machines detect different features in images (which are a result of complex interactions between data, architecture, optimizer, intializer, etc.). Thus, things like random noise will \textit{not} be just noise to the model. The only thing we can thus do is further restrict the hypothesis space manually which runs into its own set of problems.
+
+\subsection{Improving Robustness}
+
+DNNs are powerful but we must still need more than superior performance. We also need to fight against robustness so that $$\hat{y_i}=f_{\theta}(x_i+\delta) \forall \delta \in \Delta$$
+are largely correct. Thus, we formulate the robustness optimization problem as follows:
+$$\min_{\theta}\sum_{(x_i,y_i) \in S}\max_{\delta \in \Delta}\mathcal{L}(f_\theta(x+\delta),y)$$
+This naturally leads to the following theorem:
+\begin{thm}[Danskin's Theorem]
+Add Later
+\end{thm}
+
+What this shows is that by adding data augmentation (the addition of noisy examples to our data) the robustness goes down. This is the basis of \vocab{adversarial training} which improves robustness. The effect of adversarial training is visualized in the picture below:
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10052107.png}
+\end{center}
+
+\subsection{Tradeoff Between Accuracy and Robustness}
+Of course, there is again No Free Lunch and thus improving robustness leads to a decrease in accuracy and vice versa. There are actually models that do however, find \textit{some} sort of "happy mediums". These are not sufficient for a lot of examples however, like autonomous vehicles since any accident may prove fatal. We thus move towards \vocab{provable robustness} or certificates.
+
+\subsection{Provable Robustness}
+\begin{center}
+\includegraphics[scale =0.3]{pics/10052108.png}
+\end{center}
+We can \textit{quantify} robustness by giving bounds $\delta$ for which any permutation by amount $\norm{\delta}$ does not alter the classification of the data. 
+
+The \textit{certificate} is then the statement that says that within some bounds the function still classifies the same.
+
+How do we construct such bounds? Relupex (Katz, et. al 2017) shows us that finding this exact bound $r$ is NP-complete. This is due to the nonconvex nature of our functions in classifying the data. 
+
+The solution is then to construct a "convex" relaxation and then comparing the upper bounds of the lower with the lower bounds of the upper for all $\norm{\epsilon}<R$ and then using binary search to find the first $\epsilon$ that fails.
+\begin{center}
+    \includegraphics[scale =0.3]{pics/10052109.png}
+\end{center}
+How might we find these $LB_i(\epsilon)$. The idea is that you can apply linear bounds on the ReLU functions based on the derivation flow. 
+\end{document}

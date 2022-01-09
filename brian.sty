@@ -1,0 +1,153 @@
+%%brian.sty
+
+%packages
+\usepackage{amsmath,amssymb}
+\usepackage{amsthm}
+\usepackage{mdframed}
+\usepackage{thmtools}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[tocindentauto]{tocstyle}
+\usepackage[skins]{tcolorbox}
+\usepackage[framemethod=TikZ]{mdframed}
+\usepackage{tikz}
+\usepackage{enumitem}   
+\usepackage{mathtools}
+
+%noindent
+\usepackage[parfill]{parskip}
+
+%macros
+\newcommand{\zz}{\mathbb{Z}}
+\newcommand{\uu}{\mathbb{U}}
+\newcommand{\oo}{\text{ord}}
+\newcommand{\qq}{\mathbb{Q}}
+\newcommand{\rr}{\mathbb{R}}
+\newcommand{\cc}{\mathbb{C}}
+\newcommand{\ff}{\mathbb{F}}
+\newcommand{\ee}{\mathbb{E}}
+\newcommand{\pp}{\mathbb{P}}
+
+%table of contents style
+\usetocstyle{KOMAlike}
+
+%URL Coloring
+\usepackage[colorlinks=true]{hyperref}
+\hypersetup{urlcolor=RubineRed,linkcolor=BlueViolet,citecolor=ForestGreen}
+
+
+%mdframe setup
+\mdfdefinestyle{mdbluebox}{
+			roundcorner = 10pt,
+			linewidth=1pt,
+			skipabove=12pt,
+			innerbottommargin=9pt,
+			skipbelow=2pt,
+			linecolor=blue,
+			nobreak=true,
+			backgroundcolor=TealBlue!5,
+		}
+
+\declaretheoremstyle[
+			headfont=\sffamily\bfseries\color{MidnightBlue},
+			mdframed={style=mdbluebox},
+			headpunct={\\[3pt]},
+			postheadspace={0pt}
+		]{thmbluebox}
+
+\mdfdefinestyle{mdredbox}{%
+			roundcorner = 10pt,
+			linewidth=1pt,
+			skipabove=12pt,
+			innerbottommargin=9pt,
+			skipbelow=2pt,
+			linecolor=BrickRed,
+			nobreak=true,
+			backgroundcolor=OrangeRed!5,
+		}
+
+\declaretheoremstyle[
+			headfont=\sffamily\bfseries\color{OrangeRed},
+			mdframed={style=mdredbox},
+			headpunct={\\[3pt]},
+			postheadspace={0pt}
+		]{thmredbox}
+
+\mdfdefinestyle{mdgreenbox}{%
+			skipabove=8pt,
+			linewidth=2pt,
+			rightline=true,
+			leftline=true,
+			topline=true,
+			bottomline=true,
+			linecolor=ForestGreen,
+			backgroundcolor=ForestGreen!5,
+		}
+		
+\declaretheoremstyle[
+			headfont=\bfseries\color{RawSienna},
+			mdframed={style=mdredbox},
+			headpunct={\\[3pt]},
+			postheadspace={0pt},
+		]{thmredbox}
+		
+\mdfdefinestyle{mdgreenbox}{%
+			skipabove=8pt,
+			linewidth=1pt,
+			rightline=true,
+			leftline=true,
+			topline=true,
+			bottomline=true,
+			linecolor=ForestGreen,
+			backgroundcolor=ForestGreen!5,
+		}
+		\declaretheoremstyle[
+			headfont=\bfseries\sffamily\color{ForestGreen!70!black},
+			bodyfont=\normalfont,
+			spaceabove=2pt,
+			spacebelow=1pt,
+			mdframed={style=mdgreenbox},
+			headpunct={ --- },
+		]{thmgreenbox}
+		
+\mdfdefinestyle{mdblackbox}{%
+			skipabove=8pt,
+			linewidth=3pt,
+			rightline=false,
+			leftline=true,
+			topline=false,
+			bottomline=false,
+			linecolor=black,
+			backgroundcolor=RedViolet!5!gray!5,
+		}
+		\declaretheoremstyle[
+			headfont=\bfseries,
+			bodyfont=\normalfont\small,
+			spaceabove=0pt,
+			spacebelow=0pt,
+			mdframed={style=mdblackbox}
+		]{thmblackbox}
+
+\declaretheorem[style=thmbluebox,name=Theorem,numberwithin=section]{thm}
+\declaretheorem[style=thmbluebox,name=Lemma,sibling=thm]{lemma}
+\declaretheorem[style=thmbluebox,name=Proposition,sibling=thm]{prop}
+\declaretheorem[style=thmbluebox, name=Corollary,sibling=thm]{cor}
+\declaretheorem[style=thmredbox, name = Example, sibling = thm]{ex}
+\declaretheorem[style=thmgreenbox, name=Definition,sibling=thm]{defn}
+\declaretheorem[style=thmgreenbox, name=Assumption,sibling=thm]{assump}
+\declaretheorem[style=thmblackbox,name=Remark,sibling=thm]{remark}
+\declaretheorem[style=thmredbox, name = Exercise, sibling = thm]{exc}
+\declaretheorem[style=thmredbox, name = Idea, sibling = thm]{idea}
+
+
+%Vocab
+\newcommand{\vocab}[1]{\textbf{\color{blue} #1}}
+\providecommand{\alert}{\vocab}
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\tr}[1]{\text{tr }#1}
+ \newcommand{\ind}{\perp\!\!\!\!\perp} 
+
+\newenvironment{soln}{\begin{proof}[Solution] \hfill }{\end{proof}}
+\declaretheorem[style=thmredbox,name=Problem,numberwithin=section]{problem}
+\declaretheorem[style=thmredbox,name=Problem,numbered=no]{problem*}
+
